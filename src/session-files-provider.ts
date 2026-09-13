@@ -21,7 +21,8 @@ export class SessionFilesProvider implements vscode.TreeDataProvider<FileEntry> 
     manager.onDidChange(() => this.refreshIfActiveFolderChanged())
   }
 
-  private activeFolder(): string | null {
+  /** Root of the active session's file tree — used to resolve "copy relative path". */
+  activeFolder(): string | null {
     const activeId = this.manager.getActiveId()
     if (!activeId) return null
     return this.manager.list().find((s) => s.id === activeId)?.folder ?? null
@@ -47,6 +48,7 @@ export class SessionFilesProvider implements vscode.TreeDataProvider<FileEntry> 
     // the icon from the user's active file-icon theme, matching the native
     // Explorer's per-file-type icons for free.
     item.resourceUri = vscode.Uri.file(entry.fsPath)
+    item.contextValue = 'airportFileEntry'
     if (!entry.isDirectory) {
       item.command = { command: 'vscode.open', title: 'Open File', arguments: [item.resourceUri] }
     }

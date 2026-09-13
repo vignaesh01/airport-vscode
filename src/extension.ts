@@ -1,7 +1,9 @@
+import { spawn } from 'child_process'
 import * as vscode from 'vscode'
 import { SessionManager } from './session-manager'
 import { SessionTreeProvider } from './session-tree-provider'
 import { SessionFilesProvider } from './session-files-provider'
+import { registerFileCommands } from './file-commands'
 import { runNewSessionFlow } from './new-session-flow'
 import type { SessionRecord } from './session'
 
@@ -26,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
     showCollapseAll: true
   })
   context.subscriptions.push(filesView)
+  registerFileCommands(context, filesProvider)
 
   const updateHasActiveSessionContext = (): void => {
     void vscode.commands.executeCommand('setContext', 'airport.hasActiveSession', manager.getActiveId() !== null)
@@ -63,14 +66,19 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand('airport.viewFolder', (session: SessionRecord) => {
-      // Makes this session active (so the Files view, which always follows
-      // the active session, switches to its folder) and brings that view to
-      // the front — entirely in the current window. Never touches
-      // vscode.workspace state: adding/removing workspace folders can
-      // reopen the window (or open a new one) on a single-folder window,
-      // which is unacceptable for something this routine.
-      manager.setActive(session.id)
-      void vscode.commands.executeCommand(`${FILES_VIEW_ID}.focus`)
+      // revealFileInOS opens the folder's *parent* with the item selected
+      // rather than opening the folder's contents, so the OS file manager
+      // is launched directly on the session folder instead.
+      switch (process.platform) {
+        case 'win32':
+          spawn('explorer.exe', [session.folder], { detached: true, stdio: 'ignore' }).unref()
+          break
+        case 'darwin':
+          spawn('open', [session.folder], { detached: true, stdio: 'ignore' }).unref()
+          break
+        default:
+          spawn('xdg-open', [session.folder], { detached: true, stdio: 'ignore' }).unref()
+      }
     }),
 
     vscode.commands.registerCommand('airport.renameSession', async (session: SessionRecord) => {
