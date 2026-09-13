@@ -33,6 +33,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(manager.onDidChange(updateHasActiveSessionContext))
   updateHasActiveSessionContext()
 
+  const updateNotificationsEnabledContext = (): void => {
+    void vscode.commands.executeCommand('setContext', 'airport.notificationsEnabled', manager.notificationsOn)
+  }
+  context.subscriptions.push(manager.onDidChange(updateNotificationsEnabledContext))
+  updateNotificationsEnabledContext()
+
   const updateBadge = (): void => {
     const count = manager.needsYouCount()
     treeView.badge =
@@ -77,7 +83,15 @@ export function activate(context: vscode.ExtensionContext): void {
       manager.rename(session.id, name)
     }),
 
-    vscode.commands.registerCommand('airport.toggleNotifications', () => {
+    vscode.commands.registerCommand('airport.turnOffNotifications', () => {
+      manager.toggleNotifications()
+      vscode.window.setStatusBarMessage(
+        `Airport notifications ${manager.notificationsOn ? 'enabled' : 'disabled'}`,
+        3000
+      )
+    }),
+
+    vscode.commands.registerCommand('airport.turnOnNotifications', () => {
       manager.toggleNotifications()
       vscode.window.setStatusBarMessage(
         `Airport notifications ${manager.notificationsOn ? 'enabled' : 'disabled'}`,
@@ -88,18 +102,6 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('airport.resumeSessions', () => manager.resume()),
     vscode.commands.registerCommand('airport.discardResume', () => manager.discardResume())
   )
-
-  // Alt+1..9 (0 for the 10th) — mirrors the numbering the rail could show,
-  // bound via package.json keybindings scoped to when this view has focus.
-  for (let i = 0; i < 10; i++) {
-    const index = i
-    context.subscriptions.push(
-      vscode.commands.registerCommand(`airport.gotoSession${(i + 1) % 10}`, () => {
-        const session = manager.sessionAt(index)
-        if (session) manager.setActive(session.id)
-      })
-    )
-  }
 
   if (manager.resumeCount > 0) {
     void manager.offerResume()

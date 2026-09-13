@@ -1,5 +1,7 @@
+import * as path from 'path'
 import * as vscode from 'vscode'
 import { formatElapsed } from './format-elapsed'
+import { AGENTS } from './agents'
 import type { SessionManager } from './session-manager'
 import type { SessionRecord } from './session'
 import type { SessionStatus } from './status-engine'
@@ -29,18 +31,12 @@ const STATUS_LABEL: Record<SessionStatus, string> = {
   grey: 'Exited'
 }
 
-const ELAPSED_REFRESH_MS = 30_000
-
 export class SessionTreeProvider implements vscode.TreeDataProvider<SessionRecord>, vscode.Disposable {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<SessionRecord | undefined | void>()
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event
-  // The tree otherwise only redraws on a status change, so the elapsed-time
-  // label in each item's description would freeze once a session goes quiet.
-  private readonly elapsedTimer: ReturnType<typeof setInterval>
 
   constructor(private readonly manager: SessionManager) {
     manager.onDidChange(() => this.onDidChangeTreeDataEmitter.fire())
-    this.elapsedTimer = setInterval(() => this.refresh(), ELAPSED_REFRESH_MS)
   }
 
   refresh(): void {
@@ -48,18 +44,19 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SessionRecor
   }
 
   dispose(): void {
-    clearInterval(this.elapsedTimer)
     this.onDidChangeTreeDataEmitter.dispose()
   }
 
   getTreeItem(session: SessionRecord): vscode.TreeItem {
     const status = this.manager.statusOf(session.id)
     const branch = this.manager.branchOf(session.id)
-    const item = new vscode.TreeItem(session.name, vscode.TreeItemCollapsibleState.None)
+    const folderName = path.basename(session.folder)
+    const agentLabel = AGENTS.find((a) => a.id === session.agentId)?.label ?? session.agentId
+    const item = new vscode.TreeItem(folderName, vscode.TreeItemCollapsibleState.None)
     item.id = session.id
     item.iconPath = iconFor(status)
-    item.description = [branch, formatElapsed(Date.now() - session.createdAt)].filter(Boolean).join(' · ')
-    item.tooltip = `${session.folder}\n${STATUS_LABEL[status]}`
+    item.description = [session.name, branch, agentLabel].filter(Boolean).join(' · ')
+    item.tooltip = `${session.folder}\nGit Branch : ${branch ?? 'no branch'}\n${agentLabel}\n${STATUS_LABEL[status]}\n${formatElapsed(Date.now() - session.createdAt)} elapsed`
     item.contextValue = 'airportSession'
     item.command = {
       command: 'airport.selectSession',

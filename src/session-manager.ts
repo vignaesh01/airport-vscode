@@ -37,6 +37,9 @@ export class SessionManager implements vscode.Disposable {
   private readonly runtime = new Map<string, Runtime>()
   private readonly disposables: vscode.Disposable[] = []
   private pendingResume: SessionsFile | null = null
+  // Diagnostic channel for status-classification and rename debugging —
+  // surfaced to users as "Airport" in the Output panel's dropdown.
+  private readonly output = vscode.window.createOutputChannel('Airport')
 
   private readonly onDidChangeEmitter = new vscode.EventEmitter<void>()
   readonly onDidChange = this.onDidChangeEmitter.event
@@ -58,6 +61,7 @@ export class SessionManager implements vscode.Disposable {
     for (const d of this.disposables) d.dispose()
     for (const runtime of this.runtime.values()) runtime.tracker.dispose()
     this.onDidChangeEmitter.dispose()
+    this.output.dispose()
   }
 
   // ---- Resume ----
@@ -93,9 +97,12 @@ export class SessionManager implements vscode.Disposable {
     const file = this.pendingResume
     this.pendingResume = null
     for (const record of file.sessions) {
-      this.launch(record)
+      this.sessions.push(record)
+      this.launch(record, false)
     }
     this.activeId = file.activeId ?? file.sessions[0]?.id ?? null
+    if (this.activeId) this.runtime.get(this.activeId)?.terminal?.show(true)
+    this.persist()
     this.notifyChange()
   }
 
@@ -174,7 +181,7 @@ export class SessionManager implements vscode.Disposable {
     }, 3000)
   }
 
-  private launch(record: SessionRecord): void {
+  private launch(record: SessionRecord, reveal = true): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
     const terminal = vscode.window.createTerminal({
       name: record.name,
@@ -182,7 +189,15 @@ export class SessionManager implements vscode.Disposable {
       shellPath: record.shellPath
     })
 
-    const tracker = new SessionStatusTracker((status) => this.handleStatusChange(record.id, status))
+    const tracker = new SessionStatusTracker(
+      (status) => this.handleStatusChange(record.id, status),
+      (title) => {
+        this.output.appendLine(`[${record.name}] rename -> ${JSON.stringify(title)}`)
+        this.rename(record.id, title)
+      },
+      agent?.renameConfirmationPattern,
+      (message) => this.output.appendLine(`[${record.name}] ${message}`)
+    )
     this.runtime.set(record.id, {
       terminal,
       tracker,
@@ -205,7 +220,7 @@ export class SessionManager implements vscode.Disposable {
       // fallback the API docs recommend) before sending the command.
       this.runAfterShellIntegration(terminal, () => terminal.sendText(agent.command as string))
     }
-    terminal.show(true)
+    if (reveal) terminal.show(true)
 
     getBranch(record.folder).then((branch) => {
       const runtime = this.runtime.get(record.id)
@@ -252,10 +267,6 @@ export class SessionManager implements vscode.Disposable {
     this.notifyChange()
   }
 
-  sessionAt(index: number): SessionRecord | undefined {
-    return this.sessions[index]
-  }
-
   // ---- Event handlers ----
 
   private handleExecutionStart(event: vscode.TerminalShellExecutionStartEvent): void {
@@ -287,7 +298,20 @@ export class SessionManager implements vscode.Disposable {
     const entry = [...this.runtime.entries()].find(([, r]) => r.terminal === term)
     if (!entry) return
     const [id] = entry
-    if (this.activeId !== id) this.setActive(id)
+    if (this.activeId === id) return
+    // VS Code already made this terminal active (e.g. the user clicked its
+    // tab) — just update our bookkeeping. Calling setActive here would call
+    // terminal.show() again, which steals keyboard focus back to the
+    // terminal and, during a multi-session resume where several terminals
+    // are created in quick succession, causes visible focus "ping-pong".
+    const previousId = this.activeId
+    if (previousId) {
+      const prevRuntime = this.runtime.get(previousId)
+      if (prevRuntime) prevRuntime.lastActiveAt = Date.now()
+    }
+    this.activeId = id
+    this.persist()
+    this.notifyChange()
   }
 
   private handleStatusChange(id: string, status: SessionStatus): void {

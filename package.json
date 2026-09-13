@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "publisher": "airport",
   "private": true,
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -68,8 +69,12 @@
         "title": "Airport: Open Session"
       },
       {
-        "command": "airport.toggleNotifications",
-        "title": "Airport: Toggle Notifications"
+        "command": "airport.turnOffNotifications",
+        "title": "Airport: Turn Off Notifications"
+      },
+      {
+        "command": "airport.turnOnNotifications",
+        "title": "Airport: Turn On Notifications"
       },
       {
         "command": "airport.resumeSessions",
@@ -78,19 +83,19 @@
       {
         "command": "airport.discardResume",
         "title": "Airport: Discard Previous Sessions"
-      },
-      { "command": "airport.gotoSession1", "title": "Airport: Go to Session 1" },
-      { "command": "airport.gotoSession2", "title": "Airport: Go to Session 2" },
-      { "command": "airport.gotoSession3", "title": "Airport: Go to Session 3" },
-      { "command": "airport.gotoSession4", "title": "Airport: Go to Session 4" },
-      { "command": "airport.gotoSession5", "title": "Airport: Go to Session 5" },
-      { "command": "airport.gotoSession6", "title": "Airport: Go to Session 6" },
-      { "command": "airport.gotoSession7", "title": "Airport: Go to Session 7" },
-      { "command": "airport.gotoSession8", "title": "Airport: Go to Session 8" },
-      { "command": "airport.gotoSession9", "title": "Airport: Go to Session 9" },
-      { "command": "airport.gotoSession0", "title": "Airport: Go to Session 10" }
+      }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "airport.turnOffNotifications",
+          "when": "airport.notificationsEnabled"
+        },
+        {
+          "command": "airport.turnOnNotifications",
+          "when": "!airport.notificationsEnabled"
+        }
+      ],
       "view/title": [
         {
           "command": "airport.newSession",
@@ -98,8 +103,12 @@
           "group": "navigation"
         },
         {
-          "command": "airport.toggleNotifications",
-          "when": "view == airport.sessions"
+          "command": "airport.turnOffNotifications",
+          "when": "view == airport.sessions && airport.notificationsEnabled"
+        },
+        {
+          "command": "airport.turnOnNotifications",
+          "when": "view == airport.sessions && !airport.notificationsEnabled"
         }
       ],
       "view/item/context": [
@@ -119,49 +128,7 @@
           "group": "inline"
         }
       ]
-    },
-    "keybindings": [
-      {
-        "command": "airport.gotoSession1",
-        "key": "alt+1"
-      },
-      {
-        "command": "airport.gotoSession2",
-        "key": "alt+2"
-      },
-      {
-        "command": "airport.gotoSession3",
-        "key": "alt+3"
-      },
-      {
-        "command": "airport.gotoSession4",
-        "key": "alt+4"
-      },
-      {
-        "command": "airport.gotoSession5",
-        "key": "alt+5"
-      },
-      {
-        "command": "airport.gotoSession6",
-        "key": "alt+6"
-      },
-      {
-        "command": "airport.gotoSession7",
-        "key": "alt+7"
-      },
-      {
-        "command": "airport.gotoSession8",
-        "key": "alt+8"
-      },
-      {
-        "command": "airport.gotoSession9",
-        "key": "alt+9"
-      },
-      {
-        "command": "airport.gotoSession0",
-        "key": "alt+0"
-      }
-    ]
+    }
   },
   "scripts": {
     "build": "node esbuild.js",
