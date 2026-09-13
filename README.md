@@ -1,63 +1,69 @@
-# ✈️ Airport for VS Code
+# ✈️ Airport
 
-Run Claude Code, Codex, Devin, and other AI coding agents side by side in VS Code's own integrated
-terminals — with a traffic-light status per session so you always know which one needs you.
+Run Claude Code, Codex, Devin, and other AI coding agents side by side — in VS Code's own
+terminals — and see at a glance which ones need you.
 
-This is a VS Code extension port of the [Airport desktop app](https://github.com/vignaesh01/airport).
-Instead of a separate Electron window managing its own PTYs, sessions run in real
-`vscode.window` terminals, and status is read from VS Code's stable
-[terminal shell integration API](https://code.visualstudio.com/api/references/vscode-api#TerminalShellExecution)
-— no bundled native modules, no per-platform packaging, and it works over SSH/WSL/Codespaces for free.
+If you juggle several AI agent sessions at once, you know the problem: they're all just terminal
+tabs, so you end up alt-tabbing between them to check whether one is still thinking or has been
+sitting idle waiting for an answer for the last five minutes. Airport adds a sidebar that tracks
+every session's status for you, so you only switch to the ones that actually need your attention.
 
-## Status semantics
+## What it does
 
-- 🔴 **Needs you** — the agent is blocked on a question or a permission prompt
-- 🟡 **Working** — the agent is thinking or running a tool
-- 🟢 **Done** — the agent finished its turn and is idle
-- ⚪ **Exited** — the terminal process ended
+- **A dedicated sidebar** lists all your agent sessions in one place, each with a live status
+  light.
+- **Start any agent** — Claude Code, Codex, Antigravity, Devin, or a plain shell — in one click,
+  each running in a real VS Code terminal.
+- **Know who needs you** without checking every tab: sessions are color-coded so a blocked one
+  stands out immediately.
+- **Browse each session's files** in a lightweight panel that follows whichever session is
+  selected, without touching your workspace folders.
+- **Pick up where you left off** — Airport offers to resume your previous sessions the next time
+  you open the workspace.
 
-Status is a heuristic based on output timing and the shape of the most recently rendered rows (not
-raw bytes), so it survives full-screen TUI redraws. See `src/status-engine.ts`.
+## Status lights
+
+| | Status | Meaning |
+|---|---|---|
+| 🔴 | **Needs you** | The agent is blocked on a question or a permission prompt |
+| 🟡 | **Working** | The agent is thinking or running a tool |
+| 🟢 | **Done** | The agent finished its turn and is idle |
+| ⚪ | **Exited** | The terminal process ended |
+
+## Getting started
+
+1. Install the extension and open the **Airport** icon in the Activity Bar.
+2. Click **+** in the Sessions view and pick an agent to start.
+3. Work as usual in the terminal that opens — Airport watches its output in the background and
+   updates the status light for you.
+4. Click any session in the sidebar to jump straight to its terminal, or use the **Files** view
+   underneath to browse its folder without leaving the sidebar.
+
+Notifications can be turned on so you get an OS notification when a session needs you — toggle
+them from the Sessions view's toolbar or the Command Palette (**Airport: Turn On/Off
+Notifications**).
 
 ## Requirements
 
-- VS Code 1.93+ (for stable terminal shell integration)
-- Shell integration active in the terminal's shell (bash, zsh, fish, pwsh, cmd are supported). If it
-  never activates for a given shell, the session still runs — it just won't show a status.
-- The AI coding agents you want to run, installed and working from your regular terminal first.
+- VS Code 1.93 or newer.
+- A shell with [shell integration](https://code.visualstudio.com/docs/terminal/shell-integration)
+  support — bash, zsh, fish, pwsh, and cmd all work. If shell integration doesn't activate for your
+  shell, the session still runs, it just won't show a status light.
+- The AI coding agent(s) you want to run (Claude Code, Codex, etc.) already installed and working
+  from your regular terminal.
 
-## Development
+## Known limitations
 
-```sh
-npm install
-npm run watch   # esbuild in watch mode
-```
+- No built-in diff viewer — use VS Code's Source Control view for that (works when a session's
+  folder is also a workspace folder).
+- A session's terminal name can't be changed after it's created, due to a VS Code API limitation;
+  renaming a session in the sidebar keeps working, it just doesn't rename the underlying terminal
+  tab.
+- After reloading the window, resumed sessions won't show a status until they produce new output.
 
-Press F5 in VS Code to launch an Extension Development Host.
+## About
 
-```sh
-npm test        # vitest — status-engine / shells / format-elapsed unit tests
-npm run typecheck
-```
-
-## Files panel
-
-Each session's folder is shown in the **Files** view (below Sessions in the Airport sidebar) — a
-lightweight read-only file tree that always follows whichever session is active, built by reading
-the folder directly rather than through VS Code's workspace APIs. Clicking a session (or its "View
-Folder" inline action) switches the Files panel to that folder; clicking a file opens it in the
-current window's editor, same as double-clicking in the native Explorer.
-
-This is deliberately **not** implemented via `vscode.workspace.updateWorkspaceFolders()` (adding the
-session's folder as a workspace folder): on a window that isn't already a multi-root workspace, that
-API can reopen the current window or spawn an entirely new one, which is unacceptable for something
-as routine as starting or switching a session — every session stays in the one window you started in.
-
-## Known limitations vs. the desktop app
-
-- No diff viewer — use VS Code's own Source Control view for that (works when the session's folder
-  happens to be a workspace folder; the Files panel above doesn't provide diffs on its own).
-- A session's terminal name can't be renamed after creation (VS Code API limitation); the rail's
-  session name is tracked separately from the underlying terminal's title.
-- Reloading the window doesn't reattach the output stream to resumed terminals, so a "resumed"
-  session shows no status until it produces new output.
+Airport is a VS Code port of the [Airport desktop app](https://github.com/vignaesh01/airport),
+rebuilt to run entirely inside VS Code's own terminals instead of a separate Electron window — so
+there's nothing to install beyond the extension itself, and it works the same over SSH, WSL, and
+GitHub Codespaces.
