@@ -40,12 +40,23 @@ npm test        # vitest — status-engine / shells / format-elapsed unit tests
 npm run typecheck
 ```
 
+## Files panel
+
+Each session's folder is shown in the **Files** view (below Sessions in the Airport sidebar) — a
+lightweight read-only file tree that always follows whichever session is active, built by reading
+the folder directly rather than through VS Code's workspace APIs. Clicking a session (or its "View
+Folder" inline action) switches the Files panel to that folder; clicking a file opens it in the
+current window's editor, same as double-clicking in the native Explorer.
+
+This is deliberately **not** implemented via `vscode.workspace.updateWorkspaceFolders()` (adding the
+session's folder as a workspace folder): on a window that isn't already a multi-root workspace, that
+API can reopen the current window or spawn an entirely new one, which is unacceptable for something
+as routine as starting or switching a session — every session stays in the one window you started in.
+
 ## Known limitations vs. the desktop app
 
-- No built-in file explorer or diff viewer — use VS Code's own Explorer and Source Control views.
-  This only shows a session's files if its folder is part of the open workspace: when you start a
-  session in a folder outside it, Airport offers to add that folder to the workspace so it shows up
-  in Explorer. Choosing "Not now" leaves the session running with no file-browsing UI for it.
+- No diff viewer — use VS Code's own Source Control view for that (works when the session's folder
+  happens to be a workspace folder; the Files panel above doesn't provide diffs on its own).
 - A session's terminal name can't be renamed after creation (VS Code API limitation); the rail's
   session name is tracked separately from the underlying terminal's title.
 - Reloading the window doesn't reattach the output stream to resumed terminals, so a "resumed"

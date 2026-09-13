@@ -201,7 +201,23 @@ The plan's "drop the explorer, use VS Code's own" reasoning only holds when a se
 workspace folder. The new-session flow's folder picker allows any folder via `showOpenDialog`, so a
 session pointed outside the open workspace had no file-browsing UI at all — a gap neither the plan
 nor the integration suite caught, since nothing in either exercised a folder outside the test
-workspace. Fixed in `session-manager.ts`'s `offerAddToWorkspace()`: on session creation, if
-`vscode.workspace.getWorkspaceFolder(uri)` doesn't already cover the folder, prompt once (per folder)
-to add it via `vscode.workspace.updateWorkspaceFolders()`. Verified with a live integration test that
-asserts the workspace folder list actually grows, not just that the prompt was shown.
+workspace.
+
+**First attempt (reverted):** `session-manager.ts` prompted to add the folder via
+`vscode.workspace.updateWorkspaceFolders()`. This looked correct against the API docs and passed a
+live integration test asserting the workspace folder list grew — but real usage showed it opening a
+**new VS Code window per session**. On a window that isn't already a multi-root workspace, that API
+can reopen the current window or spawn a new one to accommodate the transition to multi-root, which
+is exactly what was observed. Chasing this also produced a run of confusing, hard-to-reproduce
+integration-test instability (the extension host restarting and re-running the whole Mocha suite,
+apparently on every folder add rather than only the documented first-time transition) before the
+underlying cause was traced back to this one API call.
+
+**Fix:** removed `updateWorkspaceFolders()` entirely — no code in this extension touches
+`vscode.workspace` state at all now. In its place, `session-files-provider.ts` is a second, lightweight
+TreeView ("Files", alongside "Sessions" in the Airport sidebar) that always mirrors the *active*
+session's folder, built by reading the filesystem directly (`file-tree.ts`'s `listDirectory()`, plain
+`fs.readdir`) rather than through any workspace/window API. Clicking a session (or its "View Folder"
+action) just calls `setActive()` and focuses the Files view — never anything that can open a window.
+`file-tree.ts` has no `vscode` import, so `listDirectory()`'s directories-first/alphabetical sort is
+covered by a fast vitest unit test (`file-tree.test.ts`) instead of the slow live-terminal harness.

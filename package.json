@@ -28,9 +28,20 @@
         {
           "id": "airport.sessions",
           "name": "Sessions"
+        },
+        {
+          "id": "airport.files",
+          "name": "Files"
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "airport.files",
+        "contents": "Select a session to see its files here.",
+        "when": "!airport.hasActiveSession"
+      }
+    ],
     "commands": [
       {
         "command": "airport.newSession",
@@ -46,6 +57,11 @@
         "command": "airport.renameSession",
         "title": "Airport: Rename Session",
         "icon": "$(edit)"
+      },
+      {
+        "command": "airport.viewFolder",
+        "title": "Airport: View Folder",
+        "icon": "$(folder-opened)"
       },
       {
         "command": "airport.selectSession",
@@ -87,6 +103,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "airport.viewFolder",
+          "when": "view == airport.sessions && viewItem == airportSession",
+          "group": "inline"
+        },
         {
           "command": "airport.renameSession",
           "when": "view == airport.sessions && viewItem == airportSession",

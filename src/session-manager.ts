@@ -1,6 +1,5 @@
 import * as vscode from 'vscode'
 import { randomUUID } from 'node:crypto'
-import { basename } from 'node:path'
 import { AGENTS } from './agents'
 import { getBranch } from './git'
 import { SessionStatusTracker } from './status-tracker'
@@ -175,34 +174,6 @@ export class SessionManager implements vscode.Disposable {
     }, 3000)
   }
 
-  /**
-   * A session's folder is only visible in VS Code's own Explorer/SCM/diff
-   * views (which this extension relies on instead of building its own) if
-   * it's a workspace folder. The new-session folder picker allows any
-   * folder, including ones outside the open workspace, so without this a
-   * session pointed elsewhere would have no file-browsing UI at all. Ask
-   * once per folder rather than forcing it — adding a workspace folder is a
-   * visible, only-somewhat-reversible change to the user's window.
-   */
-  private readonly askedAboutFolder = new Set<string>()
-
-  private async offerAddToWorkspace(folder: string): Promise<void> {
-    const uri = vscode.Uri.file(folder)
-    if (vscode.workspace.getWorkspaceFolder(uri)) return // already covered
-    if (this.askedAboutFolder.has(folder)) return
-    this.askedAboutFolder.add(folder)
-
-    const choice = await vscode.window.showInformationMessage(
-      `Add "${basename(folder)}" to your workspace so its files show up in Explorer?`,
-      'Add to Workspace',
-      'Not now'
-    )
-    if (choice !== 'Add to Workspace') return
-
-    const existing = vscode.workspace.workspaceFolders ?? []
-    vscode.workspace.updateWorkspaceFolders(existing.length, null, { uri, name: basename(folder) })
-  }
-
   private launch(record: SessionRecord): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
     const terminal = vscode.window.createTerminal({
@@ -235,7 +206,6 @@ export class SessionManager implements vscode.Disposable {
       this.runAfterShellIntegration(terminal, () => terminal.sendText(agent.command as string))
     }
     terminal.show(true)
-    void this.offerAddToWorkspace(record.folder)
 
     getBranch(record.folder).then((branch) => {
       const runtime = this.runtime.get(record.id)

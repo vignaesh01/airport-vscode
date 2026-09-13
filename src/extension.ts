@@ -1,10 +1,12 @@
 import * as vscode from 'vscode'
 import { SessionManager } from './session-manager'
 import { SessionTreeProvider } from './session-tree-provider'
+import { SessionFilesProvider } from './session-files-provider'
 import { runNewSessionFlow } from './new-session-flow'
 import type { SessionRecord } from './session'
 
 const VIEW_ID = 'airport.sessions'
+const FILES_VIEW_ID = 'airport.files'
 
 export function activate(context: vscode.ExtensionContext): void {
   const manager = new SessionManager(context)
@@ -17,6 +19,19 @@ export function activate(context: vscode.ExtensionContext): void {
     showCollapseAll: false
   })
   context.subscriptions.push(treeView)
+
+  const filesProvider = new SessionFilesProvider(manager)
+  const filesView = vscode.window.createTreeView(FILES_VIEW_ID, {
+    treeDataProvider: filesProvider,
+    showCollapseAll: true
+  })
+  context.subscriptions.push(filesView)
+
+  const updateHasActiveSessionContext = (): void => {
+    void vscode.commands.executeCommand('setContext', 'airport.hasActiveSession', manager.getActiveId() !== null)
+  }
+  context.subscriptions.push(manager.onDidChange(updateHasActiveSessionContext))
+  updateHasActiveSessionContext()
 
   const updateBadge = (): void => {
     const count = manager.needsYouCount()
@@ -39,6 +54,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('airport.closeSession', (session: SessionRecord) => {
       manager.close(session.id)
+    }),
+
+    vscode.commands.registerCommand('airport.viewFolder', (session: SessionRecord) => {
+      // Makes this session active (so the Files view, which always follows
+      // the active session, switches to its folder) and brings that view to
+      // the front — entirely in the current window. Never touches
+      // vscode.workspace state: adding/removing workspace folders can
+      // reopen the window (or open a new one) on a single-folder window,
+      // which is unacceptable for something this routine.
+      manager.setActive(session.id)
+      void vscode.commands.executeCommand(`${FILES_VIEW_ID}.focus`)
     }),
 
     vscode.commands.registerCommand('airport.renameSession', async (session: SessionRecord) => {
