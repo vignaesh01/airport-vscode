@@ -1,0 +1,170 @@
+{
+  "name": "airport",
+  "displayName": "Airport",
+  "description": "Run Claude Code, Codex, Devin, and other AI coding agents side by side in VS Code terminals — without losing track of who needs you.",
+  "version": "0.1.0",
+  "publisher": "airport",
+  "private": true,
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "airport",
+          "title": "Airport",
+          "icon": "resources/airport.svg"
+        }
+      ]
+    },
+    "views": {
+      "airport": [
+        {
+          "id": "airport.sessions",
+          "name": "Sessions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "airport.newSession",
+        "title": "Airport: New Session",
+        "icon": "$(add)"
+      },
+      {
+        "command": "airport.closeSession",
+        "title": "Airport: Close Session",
+        "icon": "$(close)"
+      },
+      {
+        "command": "airport.renameSession",
+        "title": "Airport: Rename Session",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "airport.selectSession",
+        "title": "Airport: Open Session"
+      },
+      {
+        "command": "airport.toggleNotifications",
+        "title": "Airport: Toggle Notifications"
+      },
+      {
+        "command": "airport.resumeSessions",
+        "title": "Airport: Resume Previous Sessions"
+      },
+      {
+        "command": "airport.discardResume",
+        "title": "Airport: Discard Previous Sessions"
+      },
+      { "command": "airport.gotoSession1", "title": "Airport: Go to Session 1" },
+      { "command": "airport.gotoSession2", "title": "Airport: Go to Session 2" },
+      { "command": "airport.gotoSession3", "title": "Airport: Go to Session 3" },
+      { "command": "airport.gotoSession4", "title": "Airport: Go to Session 4" },
+      { "command": "airport.gotoSession5", "title": "Airport: Go to Session 5" },
+      { "command": "airport.gotoSession6", "title": "Airport: Go to Session 6" },
+      { "command": "airport.gotoSession7", "title": "Airport: Go to Session 7" },
+      { "command": "airport.gotoSession8", "title": "Airport: Go to Session 8" },
+      { "command": "airport.gotoSession9", "title": "Airport: Go to Session 9" },
+      { "command": "airport.gotoSession0", "title": "Airport: Go to Session 10" }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "airport.newSession",
+          "when": "view == airport.sessions",
+          "group": "navigation"
+        },
+        {
+          "command": "airport.toggleNotifications",
+          "when": "view == airport.sessions"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "airport.renameSession",
+          "when": "view == airport.sessions && viewItem == airportSession",
+          "group": "inline"
+        },
+        {
+          "command": "airport.closeSession",
+          "when": "view == airport.sessions && viewItem == airportSession",
+          "group": "inline"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "airport.gotoSession1",
+        "key": "alt+1"
+      },
+      {
+        "command": "airport.gotoSession2",
+        "key": "alt+2"
+      },
+      {
+        "command": "airport.gotoSession3",
+        "key": "alt+3"
+      },
+      {
+        "command": "airport.gotoSession4",
+        "key": "alt+4"
+      },
+      {
+        "command": "airport.gotoSession5",
+        "key": "alt+5"
+      },
+      {
+        "command": "airport.gotoSession6",
+        "key": "alt+6"
+      },
+      {
+        "command": "airport.gotoSession7",
+        "key": "alt+7"
+      },
+      {
+        "command": "airport.gotoSession8",
+        "key": "alt+8"
+      },
+      {
+        "command": "airport.gotoSession9",
+        "key": "alt+9"
+      },
+      {
+        "command": "airport.gotoSession0",
+        "key": "alt+0"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "vscode:prepublish": "npm run build",
+    "test": "vitest run",
+    "pretest:integration": "tsc -p tsconfig.test.json",
+    "test:integration": "node src/test-integration/runTest.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@xterm/headless": "^6.0.0",
+    "simple-git": "^3.36.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.93.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.24.0",
+    "mocha": "^12.0.1",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  }
+}
