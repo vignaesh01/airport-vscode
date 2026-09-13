@@ -77,6 +77,18 @@ export function looksLikePrompt(line: string): boolean {
   return QUESTION_END_RE.test(trimmed) || CONFIRM_RE.test(trimmed) || OPTION_LINE_RE.test(trimmed)
 }
 
+// Chat-style agents (Antigravity included) draw a full-width horizontal rule
+// between turns instead of Claude Code's cornered box borders (which mix in
+// ╭/╮/╰/╯ and text, so this pure-dash pattern never matches those). Without
+// this, a completed turn's own conversational reply ending in "?" — e.g.
+// "How can I help you today with the X project?" — was mistaken for a live
+// prompt purely because QUESTION_END_RE matches any trailing "?".
+const SEPARATOR_RE = /^[-─━]{10,}$/
+
+function isTurnSeparator(line: string): boolean {
+  return SEPARATOR_RE.test(line.trim())
+}
+
 export interface ClassifyParams {
   /** True once the PTY process has exited. */
   exited: boolean
@@ -105,7 +117,13 @@ export function classifyStatus({ exited, now, lastOutputAt, lines }: ClassifyPar
 
   const quiet = now - lastOutputAt
   if (quiet < YELLOW_ACTIVE_MS) return 'yellow'
-  if (quiet >= RED_QUIET_MS && lines.some(looksLikePrompt)) return 'red'
+  if (quiet >= RED_QUIET_MS) {
+    // Only the lines since the most recent turn separator are "live" — text
+    // above it belongs to an already-finished turn.
+    const lastSeparatorIndex = lines.reduce((last, line, i) => (isTurnSeparator(line) ? i : last), -1)
+    const liveLines = lastSeparatorIndex >= 0 ? lines.slice(lastSeparatorIndex + 1) : lines
+    if (liveLines.some(looksLikePrompt)) return 'red'
+  }
   if (quiet >= GREEN_QUIET_MS) return 'green'
   return 'yellow'
 }

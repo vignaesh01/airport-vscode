@@ -95,6 +95,38 @@ describe('classifyStatus', () => {
     )
   })
 
+  it('is not red when a "?"-ending line belongs to a finished turn, past a separator', () => {
+    // Reproduces a real Antigravity false positive: its own conversational
+    // reply happened to end in "?", and a full-width "────" rule (its
+    // between-turns marker) sits between that line and the idle prompt.
+    expect(
+      classifyStatus({
+        ...base,
+        now: 10_900,
+        lastOutputAt: 10_000,
+        lines: [
+          '> hi',
+          '',
+          '  Hello! How can I help you today with the project?',
+          '',
+          '────────────────────────────────────────',
+          '>'
+        ]
+      })
+    ).not.toBe('red')
+  })
+
+  it('is still red for a "?"-ending prompt with no separator after it', () => {
+    expect(
+      classifyStatus({
+        ...base,
+        now: 10_900,
+        lastOutputAt: 10_000,
+        lines: ['Do you trust the contents of this project?', '', '> Yes, I trust this folder', '  No, exit']
+      })
+    ).toBe('red')
+  })
+
   it('turns green, not red, once an agent exits back to the wrapping shell prompt', () => {
     // The PTY itself is still alive (it wraps the agent command in cmd/PowerShell
     // so the window stays open), so `exited` is false — only the rendered line
