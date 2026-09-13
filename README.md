@@ -43,6 +43,9 @@ npm run typecheck
 ## Known limitations vs. the desktop app
 
 - No built-in file explorer or diff viewer — use VS Code's own Explorer and Source Control views.
+  This only shows a session's files if its folder is part of the open workspace: when you start a
+  session in a folder outside it, Airport offers to add that folder to the workspace so it shows up
+  in Explorer. Choosing "Not now" leaves the session running with no file-browsing UI for it.
 - A session's terminal name can't be renamed after creation (VS Code API limitation); the rail's
   session name is tracked separately from the underlying terminal's title.
 - Reloading the window doesn't reattach the output stream to resumed terminals, so a "resumed"

@@ -194,3 +194,14 @@ original Electron app's global `window` keydown handler.
 badge, and rename/close context menus (no UI is driven in the integration suite), the resume flow
 end-to-end, and a real long-running agent's alt-screen TUI redrawing at the headless emulator's fixed
 `HEADLESS_COLS`/`HEADLESS_ROWS`.
+
+### Follow-up: a session's folder wasn't visible anywhere
+
+The plan's "drop the explorer, use VS Code's own" reasoning only holds when a session's folder is a
+workspace folder. The new-session flow's folder picker allows any folder via `showOpenDialog`, so a
+session pointed outside the open workspace had no file-browsing UI at all — a gap neither the plan
+nor the integration suite caught, since nothing in either exercised a folder outside the test
+workspace. Fixed in `session-manager.ts`'s `offerAddToWorkspace()`: on session creation, if
+`vscode.workspace.getWorkspaceFolder(uri)` doesn't already cover the folder, prompt once (per folder)
+to add it via `vscode.workspace.updateWorkspaceFolders()`. Verified with a live integration test that
+asserts the workspace folder list actually grows, not just that the prompt was shown.

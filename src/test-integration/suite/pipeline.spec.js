@@ -6,6 +6,9 @@
 // real agent, watch yellow -> red -> green" kill-criterion.
 const assert = require('node:assert')
 const path = require('node:path')
+const fs = require('node:fs')
+const os = require('node:os')
+const vscode = require('vscode')
 
 const outTest = path.resolve(__dirname, '..', '..', '..', 'out-test')
 const { SessionManager } = require(path.join(outTest, 'session-manager'))
@@ -93,5 +96,32 @@ suite('Airport status pipeline (live terminal)', () => {
 
     await waitFor(() => manager.statusOf(record.id) === 'red', 15000)
     assert.strictEqual(manager.statusOf(record.id), 'red')
+  })
+
+  test('a session folder outside the open workspace is offered as a workspace folder', async () => {
+    // The test runner opens `workspaceDir` itself as the workspace, so a
+    // *different* folder is needed to exercise the "not already covered"
+    // branch of offerAddToWorkspace.
+    const outsideFolder = fs.mkdtempSync(path.join(os.tmpdir(), 'airport-outside-'))
+    assert.strictEqual(vscode.workspace.getWorkspaceFolder(vscode.Uri.file(outsideFolder)), undefined)
+
+    const originalShowInformationMessage = vscode.window.showInformationMessage
+    let promptedWith = null
+    vscode.window.showInformationMessage = (message, ...items) => {
+      promptedWith = { message, items }
+      return Promise.resolve('Add to Workspace')
+    }
+    try {
+      manager.create(outsideFolder, 'test-quiet')
+      await waitFor(() => vscode.workspace.getWorkspaceFolder(vscode.Uri.file(outsideFolder)) !== undefined, 5000)
+    } finally {
+      vscode.window.showInformationMessage = originalShowInformationMessage
+    }
+
+    assert.ok(promptedWith, 'expected showInformationMessage to be called')
+    assert.ok(promptedWith.items.includes('Add to Workspace'))
+    assert.ok(
+      vscode.workspace.workspaceFolders?.some((f) => f.uri.fsPath === vscode.Uri.file(outsideFolder).fsPath)
+    )
   })
 })
