@@ -2,9 +2,9 @@
   "name": "airport",
   "displayName": "Airport",
   "description": "Run Claude Code, Codex, Devin, and other AI coding agents side by side in VS Code terminals — without losing track of who needs you.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "VignaeshRamA",
-  "repository": "https://github.com/vignaesh01/airport-vscoder",
+  "repository": "https://github.com/vignaesh01/airport-vscode",
   "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.93.0"
