@@ -5,10 +5,17 @@ terminals — and see at a glance which ones need you.
 
 ![Airport: multiple AI agent terminals running side by side, with the sidebar showing which one needs you](media/hero.gif)
 
-If you juggle several AI agent terminals at once, you know the problem: they're all just terminal
-tabs, so you end up alt-tabbing between them to check whether one is still thinking or has been
-sitting idle waiting for an answer for the last five minutes. Airport adds a sidebar that tracks
-every terminal's status for you, so you only switch to the ones that actually need your attention.
+If you juggle several AI agent terminals at once, you know the problems:
+
+- **They're all just terminal tabs.** You end up alt-tabbing between them to check whether one is
+  still thinking or has been sitting idle waiting for an answer for the last five minutes.
+- **You can't tell what an agent is touching.** Once you're in a terminal, there's no easy way to
+  see which files it's actually working on — just a separate file explorer or `cd` history to
+  piece it together.
+
+Airport fixes both: a sidebar tracks every terminal's status so you only switch to the ones that
+need you, and a Files view always shows the workspace the selected terminal's agent is operating
+on.
 
 ## What it does
 
