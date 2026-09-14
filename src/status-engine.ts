@@ -1,4 +1,4 @@
-export type SessionStatus = 'red' | 'yellow' | 'green' | 'grey'
+export type TerminalStatus = 'red' | 'yellow' | 'green' | 'grey'
 
 /** Output written more recently than this counts as still actively streaming. */
 export const YELLOW_ACTIVE_MS = 400
@@ -10,7 +10,7 @@ export const GREEN_QUIET_MS = 1500
 /**
  * Worst-case lag between the underlying condition (output actually went
  * quiet) and a poll confirming the resulting status change — quiet threshold
- * plus a couple of confirmation polls, with slack. A session that was the
+ * plus a couple of confirmation polls, with slack. A terminal that was the
  * active tab within this long of the transition settling was still being
  * watched when the real event happened, so a notification for it would just
  * be telling the user something they already saw.
@@ -18,22 +18,22 @@ export const GREEN_QUIET_MS = 1500
 export const NOTIFY_SETTLE_GRACE_MS = 2500
 
 export interface ShouldNotifyParams {
-  previousStatus: SessionStatus | undefined
-  status: SessionStatus
+  previousStatus: TerminalStatus | undefined
+  status: TerminalStatus
   /** Which status (if any) an OS notification was already fired for. */
-  alreadyNotifiedAs: SessionStatus | undefined
+  alreadyNotifiedAs: TerminalStatus | undefined
   notificationsEnabled: boolean
-  /** True when this session is both the active tab and the window has OS focus. */
+  /** True when this terminal is both the active tab and the window has OS focus. */
   isActiveAndFocused: boolean
   now: number
-  /** Epoch ms this session was last the active tab, or undefined if never. */
+  /** Epoch ms this terminal was last the active tab, or undefined if never. */
   lastActiveAt: number | undefined
 }
 
 /**
  * Decides whether a status transition should fire an OS notification.
  * Pure and harness-agnostic — it only looks at status history and tab
- * activity timing, never at which agent/shell is running in the session.
+ * activity timing, never at which agent/shell is running in the terminal.
  */
 export function shouldNotify(params: ShouldNotifyParams): boolean {
   const { previousStatus, status, alreadyNotifiedAs, notificationsEnabled, isActiveAndFocused, now, lastActiveAt } =
@@ -111,7 +111,7 @@ export interface ClassifyParams {
  * rendered rows (not the raw byte stream, so it stays meaningful across
  * full-screen/alt-screen TUI redraws).
  */
-export function classifyStatus({ exited, now, lastOutputAt, lines }: ClassifyParams): SessionStatus {
+export function classifyStatus({ exited, now, lastOutputAt, lines }: ClassifyParams): TerminalStatus {
   if (exited) return 'grey'
   if (lastOutputAt === null) return 'yellow'
 

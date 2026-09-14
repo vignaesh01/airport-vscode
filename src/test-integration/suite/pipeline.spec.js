@@ -8,7 +8,7 @@ const assert = require('node:assert')
 const path = require('node:path')
 
 const outTest = path.resolve(__dirname, '..', '..', '..', 'out-test')
-const { SessionManager } = require(path.join(outTest, 'session-manager'))
+const { TerminalManager } = require(path.join(outTest, 'terminal-manager'))
 const { AGENTS } = require(path.join(outTest, 'agents'))
 
 function makeFakeContext() {
@@ -66,7 +66,7 @@ suite('Airport status pipeline (live terminal)', () => {
   })
 
   setup(() => {
-    manager = new SessionManager(makeFakeContext())
+    manager = new TerminalManager(makeFakeContext())
   })
 
   teardown(() => {

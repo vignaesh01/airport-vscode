@@ -1,27 +1,27 @@
 import * as vscode from 'vscode'
 import { listDirectory, type FileEntry } from './file-tree'
-import type { SessionManager } from './session-manager'
+import type { TerminalManager } from './terminal-manager'
 
 /**
- * A lightweight, read-only file tree scoped to the active session's folder —
+ * A lightweight, read-only file tree scoped to the active terminal's folder —
  * built directly from the filesystem via readdir, never through
  * vscode.workspace.updateWorkspaceFolders(). That API can reopen the window
  * (or open a new one) when the current window isn't already a multi-root
  * workspace, which is unacceptable for something as routine as picking a
- * session: creating or switching a session must never touch window/workspace
+ * terminal: creating or switching a terminal must never touch window/workspace
  * state, only this panel's own content.
  */
-export class SessionFilesProvider implements vscode.TreeDataProvider<FileEntry> {
+export class TerminalFilesProvider implements vscode.TreeDataProvider<FileEntry> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<FileEntry | undefined | void>()
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event
 
   private lastFolder: string | null = null
 
-  constructor(private readonly manager: SessionManager) {
+  constructor(private readonly manager: TerminalManager) {
     manager.onDidChange(() => this.refreshIfActiveFolderChanged())
   }
 
-  /** Root of the active session's file tree — used to resolve "copy relative path". */
+  /** Root of the active terminal's file tree — used to resolve "copy relative path". */
   activeFolder(): string | null {
     const activeId = this.manager.getActiveId()
     if (!activeId) return null

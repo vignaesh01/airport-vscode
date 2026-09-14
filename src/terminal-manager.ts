@@ -2,13 +2,13 @@ import * as vscode from 'vscode'
 import { randomUUID } from 'node:crypto'
 import { AGENTS } from './agents'
 import { getBranch } from './git'
-import { SessionStatusTracker } from './status-tracker'
-import { shouldNotify, type SessionStatus } from './status-engine'
+import { TerminalStatusTracker } from './status-tracker'
+import { shouldNotify, type TerminalStatus } from './status-engine'
 import { sendOsNotification } from './os-notify'
-import type { SessionRecord, SessionsFile } from './session'
-import { EMPTY_SESSIONS_FILE } from './session'
+import type { TerminalRecord, TerminalsFile } from './terminal'
+import { EMPTY_TERMINALS_FILE } from './terminal'
 
-const STORAGE_KEY = 'airport.sessions'
+const STORAGE_KEY = 'airport.terminals'
 /**
  * Worst-case lag between the underlying condition (output actually went
  * quiet) and a poll confirming the resulting status change — see
@@ -17,27 +17,27 @@ const STORAGE_KEY = 'airport.sessions'
 const NOTIFY_SETTLE_GRACE_MS = 2500
 
 interface Runtime {
-  terminal: vscode.Terminal | null
-  tracker: SessionStatusTracker
+  nativeTerminal: vscode.Terminal | null
+  tracker: TerminalStatusTracker
   /** undefined until the first classification arrives — see the comment where Runtime is created. */
-  status: SessionStatus | undefined
+  status: TerminalStatus | undefined
   branch: string | null
   /** Which status (if any) an OS notification was already fired for. */
-  notifiedAs: SessionStatus | undefined
+  notifiedAs: TerminalStatus | undefined
   lastActiveAt: number | undefined
 }
 
 /**
- * Owns the live session list, one vscode.Terminal + SessionStatusTracker per
- * session, and persistence across window reloads. Fires onDidChange whenever
+ * Owns the live terminal list, one vscode.Terminal + TerminalStatusTracker per
+ * terminal, and persistence across window reloads. Fires onDidChange whenever
  * anything the tree view should redraw for has changed.
  */
-export class SessionManager implements vscode.Disposable {
-  private sessions: SessionRecord[] = []
+export class TerminalManager implements vscode.Disposable {
+  private terminals: TerminalRecord[] = []
   private activeId: string | null = null
   private readonly runtime = new Map<string, Runtime>()
   private readonly disposables: vscode.Disposable[] = []
-  private pendingResume: SessionsFile | null = null
+  private pendingResume: TerminalsFile | null = null
   // Diagnostic channel for status-classification and rename debugging —
   // surfaced to users as "Airport" in the Output panel's dropdown.
   private readonly output = vscode.window.createOutputChannel('Airport')
@@ -52,8 +52,8 @@ export class SessionManager implements vscode.Disposable {
       vscode.window.onDidChangeActiveTerminal((term) => this.handleActiveTerminalChanged(term))
     )
 
-    const stored = context.workspaceState.get<SessionsFile>(STORAGE_KEY, EMPTY_SESSIONS_FILE)
-    if (stored.sessions.length > 0) {
+    const stored = context.workspaceState.get<TerminalsFile>(STORAGE_KEY, EMPTY_TERMINALS_FILE)
+    if (stored.terminals.length > 0) {
       this.pendingResume = stored
     }
   }
@@ -68,14 +68,14 @@ export class SessionManager implements vscode.Disposable {
   // ---- Resume ----
 
   get resumeCount(): number {
-    return this.pendingResume?.sessions.length ?? 0
+    return this.pendingResume?.terminals.length ?? 0
   }
 
   async offerResume(): Promise<void> {
     if (!this.pendingResume) return
-    const count = this.pendingResume.sessions.length
+    const count = this.pendingResume.terminals.length
     const choice = await vscode.window.showInformationMessage(
-      `Airport: resume ${count} session${count === 1 ? '' : 's'} from your last window?`,
+      `Airport: resume ${count} terminal${count === 1 ? '' : 's'} from your last window?`,
       'Resume',
       'Start fresh'
     )
@@ -89,7 +89,7 @@ export class SessionManager implements vscode.Disposable {
     // resumed later via the rail's resume affordance (getPendingResume()).
   }
 
-  getPendingResume(): SessionsFile | null {
+  getPendingResume(): TerminalsFile | null {
     return this.pendingResume
   }
 
@@ -97,12 +97,12 @@ export class SessionManager implements vscode.Disposable {
     if (!this.pendingResume) return
     const file = this.pendingResume
     this.pendingResume = null
-    for (const record of file.sessions) {
-      this.sessions.push(record)
+    for (const record of file.terminals) {
+      this.terminals.push(record)
       this.launch(record, false)
     }
-    this.activeId = file.activeId ?? file.sessions[0]?.id ?? null
-    if (this.activeId) this.runtime.get(this.activeId)?.terminal?.show(true)
+    this.activeId = file.activeId ?? file.terminals[0]?.id ?? null
+    if (this.activeId) this.runtime.get(this.activeId)?.nativeTerminal?.show(true)
     this.persist()
     this.notifyChange()
   }
@@ -113,17 +113,17 @@ export class SessionManager implements vscode.Disposable {
     this.notifyChange()
   }
 
-  // ---- Session CRUD ----
+  // ---- Terminal CRUD ----
 
-  list(): SessionRecord[] {
-    return this.sessions
+  list(): TerminalRecord[] {
+    return this.terminals
   }
 
   getActiveId(): string | null {
     return this.activeId
   }
 
-  statusOf(id: string): SessionStatus {
+  statusOf(id: string): TerminalStatus {
     return this.runtime.get(id)?.status ?? 'yellow'
   }
 
@@ -132,12 +132,12 @@ export class SessionManager implements vscode.Disposable {
   }
 
   needsYouCount(): number {
-    return this.sessions.filter((s) => this.statusOf(s.id) === 'red').length
+    return this.terminals.filter((s) => this.statusOf(s.id) === 'red').length
   }
 
-  create(folder: string, agentId: string, shellPath?: string): SessionRecord {
+  create(folder: string, agentId: string, shellPath?: string): TerminalRecord {
     const id = randomUUID()
-    const record: SessionRecord = {
+    const record: TerminalRecord = {
       id,
       folder,
       agentId,
@@ -145,7 +145,7 @@ export class SessionManager implements vscode.Disposable {
       createdAt: Date.now(),
       shellPath
     }
-    this.sessions.push(record)
+    this.terminals.push(record)
     this.launch(record)
     this.setActive(id)
     this.persist()
@@ -154,21 +154,21 @@ export class SessionManager implements vscode.Disposable {
   }
 
   /**
-   * Runs `action` once `terminal`'s shell integration activates, or after a
-   * 3s timeout if it never does (mirroring the fallback pattern from VS
-   * Code's own TerminalShellIntegration.executeCommand docs) — sending the
+   * Runs `action` once `nativeTerminal`'s shell integration activates, or
+   * after a 3s timeout if it never does (mirroring the fallback pattern from
+   * VS Code's own TerminalShellIntegration.executeCommand docs) — sending the
    * command any earlier risks running it before shell integration is up,
    * which would mean its execution is never seen by
-   * onDidStartTerminalShellExecution and the session never gets a status.
+   * onDidStartTerminalShellExecution and the terminal never gets a status.
    */
-  private runAfterShellIntegration(terminal: vscode.Terminal, action: () => void): void {
-    if (terminal.shellIntegration) {
+  private runAfterShellIntegration(nativeTerminal: vscode.Terminal, action: () => void): void {
+    if (nativeTerminal.shellIntegration) {
       action()
       return
     }
     let done = false
     const listener = vscode.window.onDidChangeTerminalShellIntegration((event) => {
-      if (event.terminal !== terminal || done) return
+      if (event.terminal !== nativeTerminal || done) return
       done = true
       listener.dispose()
       clearTimeout(timeout)
@@ -182,15 +182,15 @@ export class SessionManager implements vscode.Disposable {
     }, 3000)
   }
 
-  private launch(record: SessionRecord, reveal = true): void {
+  private launch(record: TerminalRecord, reveal = true): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
-    const terminal = vscode.window.createTerminal({
+    const nativeTerminal = vscode.window.createTerminal({
       name: record.name,
       cwd: record.folder,
       shellPath: record.shellPath
     })
 
-    const tracker = new SessionStatusTracker(
+    const tracker = new TerminalStatusTracker(
       (status) => this.handleStatusChange(record.id, status),
       (title) => {
         this.output.appendLine(`[${record.name}] rename -> ${JSON.stringify(title)}`)
@@ -200,7 +200,7 @@ export class SessionManager implements vscode.Disposable {
       (message) => this.output.appendLine(`[${record.name}] ${message}`)
     )
     this.runtime.set(record.id, {
-      terminal,
+      nativeTerminal,
       tracker,
       // Left undefined (not an initial status) so the first real transition
       // isn't suppressed by shouldNotify's "no prior status" guard — mirrors
@@ -216,12 +216,12 @@ export class SessionManager implements vscode.Disposable {
       // that's exactly why onDidStartTerminalShellExecution exists as a
       // separate event. Sending the command before it activates means that
       // execution never gets seen by handleExecutionStart, so read() is
-      // never attached and the session sits with no status forever. Wait for
+      // never attached and the terminal sits with no status forever. Wait for
       // this terminal's shellIntegration to come up (with the same ~3s
       // fallback the API docs recommend) before sending the command.
-      this.runAfterShellIntegration(terminal, () => terminal.sendText(agent.command as string))
+      this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(agent.command as string))
     }
-    if (reveal) terminal.show(true)
+    if (reveal) nativeTerminal.show(true)
 
     getBranch(record.folder).then((branch) => {
       const runtime = this.runtime.get(record.id)
@@ -234,12 +234,12 @@ export class SessionManager implements vscode.Disposable {
 
   close(id: string): void {
     const runtime = this.runtime.get(id)
-    runtime?.terminal?.dispose()
+    runtime?.nativeTerminal?.dispose()
     runtime?.tracker.dispose()
     this.runtime.delete(id)
-    this.sessions = this.sessions.filter((s) => s.id !== id)
+    this.terminals = this.terminals.filter((s) => s.id !== id)
     if (this.activeId === id) {
-      this.activeId = this.sessions[0]?.id ?? null
+      this.activeId = this.terminals[0]?.id ?? null
     }
     this.persist()
     this.notifyChange()
@@ -248,9 +248,9 @@ export class SessionManager implements vscode.Disposable {
   rename(id: string, name: string): void {
     const trimmed = name.trim()
     if (!trimmed) return
-    const session = this.sessions.find((s) => s.id === id)
-    if (!session || session.name === trimmed) return
-    session.name = trimmed
+    const terminal = this.terminals.find((s) => s.id === id)
+    if (!terminal || terminal.name === trimmed) return
+    terminal.name = trimmed
     this.persist()
     this.notifyChange()
   }
@@ -263,7 +263,7 @@ export class SessionManager implements vscode.Disposable {
     }
     this.activeId = id
     const runtime = this.runtime.get(id)
-    runtime?.terminal?.show()
+    runtime?.nativeTerminal?.show()
     this.persist()
     this.notifyChange()
   }
@@ -271,7 +271,7 @@ export class SessionManager implements vscode.Disposable {
   // ---- Event handlers ----
 
   private handleExecutionStart(event: vscode.TerminalShellExecutionStartEvent): void {
-    const entry = [...this.runtime.entries()].find(([, r]) => r.terminal === event.terminal)
+    const entry = [...this.runtime.entries()].find(([, r]) => r.nativeTerminal === event.terminal)
     if (!entry) return
     const [, runtime] = entry
     const stream = event.execution.read()
@@ -282,28 +282,28 @@ export class SessionManager implements vscode.Disposable {
         }
       } catch {
         // Stream errors (e.g. terminal disposed mid-read) are non-fatal —
-        // handleTerminalClosed will mark the session exited separately.
+        // handleTerminalClosed will mark the terminal exited separately.
       }
     })()
   }
 
   private handleTerminalClosed(term: vscode.Terminal): void {
-    const entry = [...this.runtime.entries()].find(([, r]) => r.terminal === term)
+    const entry = [...this.runtime.entries()].find(([, r]) => r.nativeTerminal === term)
     if (!entry) return
     const [, runtime] = entry
-    runtime.terminal = null
+    runtime.nativeTerminal = null
     runtime.tracker.markExited()
   }
 
   private handleActiveTerminalChanged(term: vscode.Terminal | undefined): void {
-    const entry = [...this.runtime.entries()].find(([, r]) => r.terminal === term)
+    const entry = [...this.runtime.entries()].find(([, r]) => r.nativeTerminal === term)
     if (!entry) return
     const [id] = entry
     if (this.activeId === id) return
     // VS Code already made this terminal active (e.g. the user clicked its
     // tab) — just update our bookkeeping. Calling setActive here would call
-    // terminal.show() again, which steals keyboard focus back to the
-    // terminal and, during a multi-session resume where several terminals
+    // nativeTerminal.show() again, which steals keyboard focus back to the
+    // terminal and, during a multi-terminal resume where several terminals
     // are created in quick succession, causes visible focus "ping-pong".
     const previousId = this.activeId
     if (previousId) {
@@ -315,7 +315,7 @@ export class SessionManager implements vscode.Disposable {
     this.notifyChange()
   }
 
-  private handleStatusChange(id: string, status: SessionStatus): void {
+  private handleStatusChange(id: string, status: TerminalStatus): void {
     const runtime = this.runtime.get(id)
     if (!runtime) return
     const previousStatus = runtime.status
@@ -324,7 +324,7 @@ export class SessionManager implements vscode.Disposable {
 
     // notifiedAs latches which status (red/green) we've already notified for,
     // so a run of identical repeated classifications doesn't re-fire. But
-    // once the session moves on to new work (yellow) or exits (grey), that
+    // once the terminal moves on to new work (yellow) or exits (grey), that
     // latch needs to clear — otherwise a *second* task that ends the same way
     // (e.g. green again) would be silently swallowed by "already notified as
     // green" from the first task, potentially minutes/hours earlier.
@@ -344,18 +344,18 @@ export class SessionManager implements vscode.Disposable {
         lastActiveAt: runtime.lastActiveAt
       })
     ) {
-      const session = this.sessions.find((s) => s.id === id)
-      if (session) {
+      const terminal = this.terminals.find((s) => s.id === id)
+      if (terminal) {
         runtime.notifiedAs = status
         const title = status === 'red' ? 'Needs your input' : 'Task completed'
-        vscode.window.showInformationMessage(`${title}: ${session.name}`, 'Go to session').then((choice) => {
-          if (choice === 'Go to session') {
+        vscode.window.showInformationMessage(`${title}: ${terminal.name}`, 'Go to terminal').then((choice) => {
+          if (choice === 'Go to terminal') {
             runtime.notifiedAs = undefined
             this.setActive(id)
           }
         })
         if (this.osNotificationsEnabled) {
-          sendOsNotification(title, session.name, (detail) => this.output.appendLine(`OS notification failed: ${detail}`))
+          sendOsNotification(title, terminal.name, (detail) => this.output.appendLine(`OS notification failed: ${detail}`))
         }
       }
     }
@@ -388,7 +388,7 @@ export class SessionManager implements vscode.Disposable {
   // ---- Persistence ----
 
   private persist(): void {
-    const file: SessionsFile = { version: 1, activeId: this.activeId, sessions: this.sessions }
+    const file: TerminalsFile = { version: 1, activeId: this.activeId, terminals: this.terminals }
     this.context.workspaceState.update(STORAGE_KEY, file)
   }
 

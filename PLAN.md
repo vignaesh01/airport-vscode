@@ -24,7 +24,7 @@ escape sequences* for commands run in a **native VS Code terminal**, as long as 
 active. This means:
 
 - No bundled `node-pty`. No prebuilt binaries, no per-platform VSIX, no Linux/remote packaging problem.
-- Sessions run in real `vscode.window.createTerminal()` instances — get free persistence UI, copy/paste,
+- Terminals run in real `vscode.window.createTerminal()` instances — get free persistence UI, copy/paste,
   themes, accessibility, and WSL/SSH/Codespaces support, none of which the Electron app had to build.
 - The extension calls `terminal.sendText(command)` to launch the agent, then reads the async byte
   stream from `onDidStartTerminalShellExecution` → `execution.read()` and feeds it into an
@@ -34,7 +34,7 @@ active. This means:
 - Trade-off, stated explicitly: shell integration must activate (works for bash/zsh/fish/pwsh/cmd per
   VS Code's supported list) and a command's `read()` must be attached at/after
   `onDidStartTerminalShellExecution` to not miss bytes. If shell integration never activates for a
-  terminal (rare, but possible with unusual shell configs), that session shows in the rail with no
+  terminal (rare, but possible with unusual shell configs), that terminal shows in the rail with no
   traffic light and a tooltip explaining status requires shell integration — never refuse to create it.
 - The headless xterm's column width is a guess (no stable API reports a native terminal's actual
   cols/rows), so it's set generously wide/tall by default and only affects line-wrapping edge cases,
@@ -55,24 +55,24 @@ they port free):
 - `src/main/shells.ts` + `shells.test.ts` — shell discovery (`which`/`where` for cmd/powershell/bash/
   etc.), reused to populate a shell-picker if the extension offers "run in a specific shell" — likely
   unnecessary since VS Code terminal profiles already do this, but keep the logic available if the
-  new-session flow wants explicit shell selection à la `NewSessionDialog.tsx`.
+  new-terminal flow wants explicit shell selection à la `NewSessionDialog.tsx`.
 
 ## Reshaped
 
-- **Session persistence**: `sessions-store.ts`'s JSON-file approach becomes
-  `ExtensionContext.workspaceState` (or `globalState` if sessions should follow the user, not the
-  workspace) storing `SessionRecord[]` — drop `parseSessionsFile`'s manual validation in favor of a
+- **Terminal persistence**: `sessions-store.ts`'s JSON-file approach becomes
+  `ExtensionContext.workspaceState` (or `globalState` if terminals should follow the user, not the
+  workspace) storing `TerminalRecord[]` — drop `parseSessionsFile`'s manual validation in favor of a
   small zod-free type guard or just trusting the stored shape.
 - **Resume-on-reload UX**: `App.tsx`'s `pendingResume` banner becomes a `showInformationMessage` with
-  "Resume N sessions" / "Start fresh" actions, shown once on `activate()` if stored sessions exist.
+  "Resume N terminals" / "Start fresh" actions, shown once on `activate()` if stored terminals exist.
   Known limitation to state up front: even with `terminal.integrated.enablePersistentSessions`, a
   reload's `read()` stream doesn't reattach to old output — a "resumed" terminal comes back with no
   status until new output arrives.
 - **Notifications**: `notifications.ts`'s `Notification` + click-to-focus becomes
-  `window.showInformationMessage(title, 'Go to session')` with a `.then()` handler that reveals the
+  `window.showInformationMessage(title, 'Go to terminal')` with a `.then()` handler that reveals the
   terminal and focuses the corresponding tree item.
 - **Folder picker**: `dialog.ts`'s `browseForFolder` becomes `workspace.workspaceFolders` as the
-  default source (most sessions belong to the open workspace), falling back to
+  default source (most terminals belong to the open workspace), falling back to
   `window.showOpenDialog({ canSelectFolders: true })` only when no workspace is open or the user
   explicitly wants a different folder.
 - **Git branch label**: `main/git.ts`'s 13-line `simple-git` helper is kept as-is (small, reusable),
@@ -97,22 +97,22 @@ Also deleted: the two Electron-only workarounds in `Terminal.tsx` — the Ctrl+V
 airport-vscode/
   package.json              — extension manifest: contributes.views, commands, keybindings
   src/
-    extension.ts             — activate(): registers tree provider, commands, restores sessions
-    session.ts                — SessionRecord type (from shared/session.ts), session lifecycle
+    extension.ts             — activate(): registers tree provider, commands, restores terminals
+    terminal.ts                — TerminalRecord type (from shared/session.ts), terminal lifecycle
     status-engine.ts          — ported verbatim
     status-engine.test.ts
-    status-tracker.ts         — NEW: per-session @xterm/headless instance fed by execution.read(),
+    status-tracker.ts         — NEW: per-terminal @xterm/headless instance fed by execution.read(),
                                  replaces Terminal.tsx's recentLines()/reportStatus() polling loop
     agents.ts                 — ported from shared/agents.ts
     format-elapsed.ts + test
     shells.ts + test           — kept for shell-selection UI if offered
     git.ts                     — branch lookup
-    session-tree-provider.ts   — TreeDataProvider<SessionRecord>: rail as a native tree view
-    new-session-flow.ts        — QuickPick-based folder/agent/shell picker (replaces NewSessionDialog.tsx)
+    terminal-tree-provider.ts  — TreeDataProvider<TerminalRecord>: rail as a native tree view
+    new-terminal-flow.ts       — QuickPick-based folder/agent/shell picker (replaces NewSessionDialog.tsx)
   package.json contributes:
-    views: one view container ("Airport") + a TreeView for sessions
-    commands: airport.newSession, airport.closeSession, airport.renameSession, airport.toggleNotifications
-    keybindings: alt+1..9 → airport.gotoSession with args, scoped when the view has focus
+    views: one view container ("Airport") + a TreeView for terminals
+    commands: airport.newTerminal, airport.closeTerminal, airport.renameTerminal, airport.toggleNotifications
+    keybindings: alt+1..9 → airport.gotoTerminal with args, scoped when the view has focus
     viewsWelcome / badge: "N need you" count via TreeView.badge (ViewBadge)
 ```
 
@@ -125,15 +125,15 @@ airport-vscode/
 - Rename → inline command on `view/item/context` (`workbench.action....` style rename input box).
 - Close → `view/item/context` command with a trash/close icon, `group: inline`.
 - "N need you" badge → `TreeView.badge` (`{ value: needsYouCount, tooltip: '...' }`).
-- Alt+1..9 → `keybindings` contribution entries bound to `airport.gotoSession.<n>` commands, scoped
-  with `"when": "focusedView == airport.sessions"` instead of the old `window` keydown listener.
+- Alt+1..9 → `keybindings` contribution entries bound to `airport.gotoTerminal.<n>` commands, scoped
+  with `"when": "focusedView == airport.terminals"` instead of the old `window` keydown listener.
 
 ### Status detection pipeline (the part that must be proven first)
 
-1. `airport.newSession` creates a `vscode.window.createTerminal()` in the chosen folder, running the
+1. `airport.newTerminal` creates a `vscode.window.createTerminal()` in the chosen folder, running the
    agent command via `terminal.sendText(command)`.
 2. `window.onDidStartTerminalShellExecution` fires for that execution; immediately call
-   `execution.read()` and pipe each chunk into a per-session `@xterm/headless` `Terminal` instance
+   `execution.read()` and pipe each chunk into a per-terminal `@xterm/headless` `Terminal` instance
    (`scrollback: 0`, generous fixed cols/rows since real dimensions aren't queryable) via `term.write()`.
 3. On a timer (mirroring `Terminal.tsx`'s `STATUS_POLL_MS` + `STATUS_CONFIRM_COUNT` debounce), read
    `recentLines()` off the headless buffer exactly as today, feed into `classifyStatus()`, and update
@@ -141,7 +141,7 @@ airport-vscode/
 4. `window.onDidEndTerminalShellExecution` / terminal exit → `grey`.
 
 **Kill-criterion for this step, before building anything else on top:** wire this up standalone, start
-a real `claude` session in a git folder, and confirm the rail item goes yellow → red on a permission
+a real `claude` terminal in a git folder, and confirm the rail item goes yellow → red on a permission
 prompt and green when the turn ends. If the boxed-TUI rendering doesn't trip `looksLikePrompt` at the
 headless emulator's guessed width, the fix is tuning `status-engine.ts`'s regexes/row-window, not
 picking a different runtime.
@@ -151,12 +151,12 @@ picking a different runtime.
 - Run the ported `status-engine.test.ts`, `shells.test.ts`, and `format-elapsed.test.ts` unchanged
   under vitest (or migrate to the extension's chosen test runner) — this is the regression net for
   the one part of the app that must not silently change behavior.
-- Press F5 to launch an Extension Development Host, open a git repo folder, run `airport.newSession`
+- Press F5 to launch an Extension Development Host, open a git repo folder, run `airport.newTerminal`
   targeting `claude`, and manually verify the yellow → red → green → grey lifecycle described above.
-- Verify the resume flow: reload the dev host window with a session active, confirm the
-  "Resume N sessions" prompt appears and clicking it re-creates terminals (accepting that status
+- Verify the resume flow: reload the dev host window with a terminal active, confirm the
+  "Resume N terminals" prompt appears and clicking it re-creates terminals (accepting that status
   starts blank until new output arrives, per the stated limitation).
-- Verify Alt+1..9 keybindings switch/reveal the right terminal when the sessions view has focus.
+- Verify Alt+1..9 keybindings switch/reveal the right terminal when the terminals view has focus.
 
 ---
 
@@ -165,7 +165,7 @@ picking a different runtime.
 The plan above was followed as written, with one substitution for the "kill-criterion" step: this
 environment has no interactive VS Code session to run a real `F5` + live `claude` session against, so
 a `@vscode/test-electron` integration suite (`src/test-integration/`) was built instead — it launches
-a real Extension Host and drives `SessionManager` against real `vscode.window` terminals, which is as
+a real Extension Host and drives `TerminalManager` against real `vscode.window` terminals, which is as
 close to the plan's kill-criterion as an automated, non-interactive check can get. It caught three real
 bugs the plan's design didn't anticipate:
 
@@ -186,7 +186,7 @@ bugs the plan's design didn't anticipate:
    before that). Changed to `onStartupFinished`.
 
 One deliberate deviation from the plan's keybinding design: `alt+1..9` are **not** scoped to
-`"when": "focusedView == airport.sessions"` as originally planned. Switching sessions from inside a
+`"when": "focusedView == airport.terminals"` as originally planned. Switching terminals from inside a
 terminal (not the tree view) is the primary use case, so the keybindings are unscoped, matching the
 original Electron app's global `window` keydown handler.
 
@@ -195,18 +195,18 @@ badge, and rename/close context menus (no UI is driven in the integration suite)
 end-to-end, and a real long-running agent's alt-screen TUI redrawing at the headless emulator's fixed
 `HEADLESS_COLS`/`HEADLESS_ROWS`.
 
-### Follow-up: a session's folder wasn't visible anywhere
+### Follow-up: a terminal's folder wasn't visible anywhere
 
-The plan's "drop the explorer, use VS Code's own" reasoning only holds when a session's folder is a
-workspace folder. The new-session flow's folder picker allows any folder via `showOpenDialog`, so a
-session pointed outside the open workspace had no file-browsing UI at all — a gap neither the plan
+The plan's "drop the explorer, use VS Code's own" reasoning only holds when a terminal's folder is a
+workspace folder. The new-terminal flow's folder picker allows any folder via `showOpenDialog`, so a
+terminal pointed outside the open workspace had no file-browsing UI at all — a gap neither the plan
 nor the integration suite caught, since nothing in either exercised a folder outside the test
 workspace.
 
-**First attempt (reverted):** `session-manager.ts` prompted to add the folder via
+**First attempt (reverted):** `terminal-manager.ts` prompted to add the folder via
 `vscode.workspace.updateWorkspaceFolders()`. This looked correct against the API docs and passed a
 live integration test asserting the workspace folder list grew — but real usage showed it opening a
-**new VS Code window per session**. On a window that isn't already a multi-root workspace, that API
+**new VS Code window per terminal**. On a window that isn't already a multi-root workspace, that API
 can reopen the current window or spawn a new one to accommodate the transition to multi-root, which
 is exactly what was observed. Chasing this also produced a run of confusing, hard-to-reproduce
 integration-test instability (the extension host restarting and re-running the whole Mocha suite,
@@ -214,10 +214,10 @@ apparently on every folder add rather than only the documented first-time transi
 underlying cause was traced back to this one API call.
 
 **Fix:** removed `updateWorkspaceFolders()` entirely — no code in this extension touches
-`vscode.workspace` state at all now. In its place, `session-files-provider.ts` is a second, lightweight
-TreeView ("Files", alongside "Sessions" in the Airport sidebar) that always mirrors the *active*
-session's folder, built by reading the filesystem directly (`file-tree.ts`'s `listDirectory()`, plain
-`fs.readdir`) rather than through any workspace/window API. Clicking a session (or its "View Folder"
+`vscode.workspace` state at all now. In its place, `terminal-files-provider.ts` is a second, lightweight
+TreeView ("Files", alongside "Terminals" in the Airport sidebar) that always mirrors the *active*
+terminal's folder, built by reading the filesystem directly (`file-tree.ts`'s `listDirectory()`, plain
+`fs.readdir`) rather than through any workspace/window API. Clicking a terminal (or its "View Folder"
 action) just calls `setActive()` and focuses the Files view — never anything that can open a window.
 `file-tree.ts` has no `vscode` import, so `listDirectory()`'s directories-first/alphabetical sort is
 covered by a fast vitest unit test (`file-tree.test.ts`) instead of the slow live-terminal harness.

@@ -2,16 +2,16 @@ import * as path from 'path'
 import * as vscode from 'vscode'
 import { formatElapsed } from './format-elapsed'
 import { AGENTS } from './agents'
-import type { SessionManager } from './session-manager'
-import type { SessionRecord } from './session'
-import type { SessionStatus } from './status-engine'
+import type { TerminalManager } from './terminal-manager'
+import type { TerminalRecord } from './terminal'
+import type { TerminalStatus } from './status-engine'
 
 /**
  * Maps each status to a distinct codicon (not just a color) so the rail
  * stays readable for colorblind users and in a screenshot — mirrors the
  * Electron app's "colour is never the only encoding" rule.
  */
-function iconFor(status: SessionStatus): vscode.ThemeIcon {
+function iconFor(status: TerminalStatus): vscode.ThemeIcon {
   switch (status) {
     case 'red':
       return new vscode.ThemeIcon('bell-dot', new vscode.ThemeColor('problemsErrorIcon.foreground'))
@@ -24,18 +24,18 @@ function iconFor(status: SessionStatus): vscode.ThemeIcon {
   }
 }
 
-const STATUS_LABEL: Record<SessionStatus, string> = {
+const STATUS_LABEL: Record<TerminalStatus, string> = {
   red: 'Needs you',
   yellow: 'Working',
   green: 'Done',
   grey: 'Exited'
 }
 
-export class SessionTreeProvider implements vscode.TreeDataProvider<SessionRecord>, vscode.Disposable {
-  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<SessionRecord | undefined | void>()
+export class TerminalTreeProvider implements vscode.TreeDataProvider<TerminalRecord>, vscode.Disposable {
+  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TerminalRecord | undefined | void>()
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event
 
-  constructor(private readonly manager: SessionManager) {
+  constructor(private readonly manager: TerminalManager) {
     manager.onDidChange(() => this.onDidChangeTreeDataEmitter.fire())
   }
 
@@ -47,26 +47,26 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SessionRecor
     this.onDidChangeTreeDataEmitter.dispose()
   }
 
-  getTreeItem(session: SessionRecord): vscode.TreeItem {
-    const status = this.manager.statusOf(session.id)
-    const branch = this.manager.branchOf(session.id)
-    const folderName = path.basename(session.folder)
-    const agentLabel = AGENTS.find((a) => a.id === session.agentId)?.label ?? session.agentId
+  getTreeItem(terminal: TerminalRecord): vscode.TreeItem {
+    const status = this.manager.statusOf(terminal.id)
+    const branch = this.manager.branchOf(terminal.id)
+    const folderName = path.basename(terminal.folder)
+    const agentLabel = AGENTS.find((a) => a.id === terminal.agentId)?.label ?? terminal.agentId
     const item = new vscode.TreeItem(folderName, vscode.TreeItemCollapsibleState.None)
-    item.id = session.id
+    item.id = terminal.id
     item.iconPath = iconFor(status)
-    item.description = [session.name, branch, agentLabel].filter(Boolean).join(' · ')
-    item.tooltip = `${session.folder}\nGit Branch : ${branch ?? 'no branch'}\n${agentLabel}\n${STATUS_LABEL[status]}\n${formatElapsed(Date.now() - session.createdAt)} elapsed`
-    item.contextValue = 'airportSession'
+    item.description = [terminal.name, branch, agentLabel].filter(Boolean).join(' · ')
+    item.tooltip = `${terminal.folder}\nGit Branch : ${branch ?? 'no branch'}\n${agentLabel}\n${STATUS_LABEL[status]}\n${formatElapsed(Date.now() - terminal.createdAt)} elapsed`
+    item.contextValue = 'airportTerminal'
     item.command = {
-      command: 'airport.selectSession',
-      title: 'Open session',
-      arguments: [session]
+      command: 'airport.selectTerminal',
+      title: 'Open terminal',
+      arguments: [terminal]
     }
     return item
   }
 
-  getChildren(): SessionRecord[] {
+  getChildren(): TerminalRecord[] {
     return this.manager.list()
   }
 }

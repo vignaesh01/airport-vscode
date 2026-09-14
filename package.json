@@ -27,8 +27,8 @@
     "views": {
       "airport": [
         {
-          "id": "airport.sessions",
-          "name": "Sessions"
+          "id": "airport.terminals",
+          "name": "Terminals"
         },
         {
           "id": "airport.files",
@@ -39,24 +39,24 @@
     "viewsWelcome": [
       {
         "view": "airport.files",
-        "contents": "Select a session to see its files here.",
-        "when": "!airport.hasActiveSession"
+        "contents": "Select a terminal to see its files here.",
+        "when": "!airport.hasActiveTerminal"
       }
     ],
     "commands": [
       {
-        "command": "airport.newSession",
-        "title": "Airport: New Session",
+        "command": "airport.newTerminal",
+        "title": "Airport: New Terminal",
         "icon": "$(add)"
       },
       {
-        "command": "airport.closeSession",
-        "title": "Airport: Close Session",
+        "command": "airport.closeTerminal",
+        "title": "Airport: Close Terminal",
         "icon": "$(close)"
       },
       {
-        "command": "airport.renameSession",
-        "title": "Airport: Rename Session",
+        "command": "airport.renameTerminal",
+        "title": "Airport: Rename Terminal",
         "icon": "$(edit)"
       },
       {
@@ -65,8 +65,8 @@
         "icon": "$(folder-opened)"
       },
       {
-        "command": "airport.selectSession",
-        "title": "Airport: Open Session"
+        "command": "airport.selectTerminal",
+        "title": "Airport: Open Terminal"
       },
       {
         "command": "airport.turnOffNotifications",
@@ -85,12 +85,12 @@
         "title": "Airport: Turn On OS Notifications"
       },
       {
-        "command": "airport.resumeSessions",
-        "title": "Airport: Resume Previous Sessions"
+        "command": "airport.resumeTerminals",
+        "title": "Airport: Resume Previous Terminals"
       },
       {
         "command": "airport.discardResume",
-        "title": "Airport: Discard Previous Sessions"
+        "title": "Airport: Discard Previous Terminals"
       },
       {
         "command": "airport.file.reveal",
@@ -146,41 +146,41 @@
       ],
       "view/title": [
         {
-          "command": "airport.newSession",
-          "when": "view == airport.sessions",
+          "command": "airport.newTerminal",
+          "when": "view == airport.terminals",
           "group": "navigation"
         },
         {
           "command": "airport.turnOffNotifications",
-          "when": "view == airport.sessions && airport.notificationsEnabled"
+          "when": "view == airport.terminals && airport.notificationsEnabled"
         },
         {
           "command": "airport.turnOnNotifications",
-          "when": "view == airport.sessions && !airport.notificationsEnabled"
+          "when": "view == airport.terminals && !airport.notificationsEnabled"
         },
         {
           "command": "airport.turnOffOsNotifications",
-          "when": "view == airport.sessions && airport.osNotificationsEnabled"
+          "when": "view == airport.terminals && airport.osNotificationsEnabled"
         },
         {
           "command": "airport.turnOnOsNotifications",
-          "when": "view == airport.sessions && !airport.osNotificationsEnabled"
+          "when": "view == airport.terminals && !airport.osNotificationsEnabled"
         }
       ],
       "view/item/context": [
         {
-          "command": "airport.renameSession",
-          "when": "view == airport.sessions && viewItem == airportSession",
+          "command": "airport.renameTerminal",
+          "when": "view == airport.terminals && viewItem == airportTerminal",
           "group": "inline@1"
         },
         {
           "command": "airport.viewFolder",
-          "when": "view == airport.sessions && viewItem == airportSession",
+          "when": "view == airport.terminals && viewItem == airportTerminal",
           "group": "inline@2"
         },
         {
-          "command": "airport.closeSession",
-          "when": "view == airport.sessions && viewItem == airportSession",
+          "command": "airport.closeTerminal",
+          "when": "view == airport.terminals && viewItem == airportTerminal",
           "group": "inline@3"
         },
         {

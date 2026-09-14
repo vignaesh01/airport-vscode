@@ -153,7 +153,7 @@ describe('shouldNotify', () => {
     expect(shouldNotify({ ...base, previousStatus: 'yellow', status: 'red' })).toBe(true)
   })
 
-  it('does not notify for a session that is the active, focused tab', () => {
+  it('does not notify for a terminal that is the active, focused tab', () => {
     expect(shouldNotify({ ...base, isActiveAndFocused: true })).toBe(false)
   })
 
@@ -181,7 +181,7 @@ describe('shouldNotify', () => {
   // The tab-switch race this whole function exists to close: the status
   // classifier can take up to ~1.9s (quiet threshold + poll confirmation) to
   // settle after output actually stops. If the user switches away from the
-  // session within that window, the underlying completion happened while
+  // terminal within that window, the underlying completion happened while
   // they were still watching it — a notification for it would be stale.
   it('suppresses a transition that settles just after the user switched away from it', () => {
     const leftAt = 100_000
@@ -195,7 +195,7 @@ describe('shouldNotify', () => {
     expect(shouldNotify({ ...base, now: settledAt, lastActiveAt: leftAt })).toBe(true)
   })
 
-  it('is unaffected by lastActiveAt for a session that was never the active tab', () => {
+  it('is unaffected by lastActiveAt for a terminal that was never the active tab', () => {
     expect(shouldNotify({ ...base, lastActiveAt: undefined })).toBe(true)
   })
 })

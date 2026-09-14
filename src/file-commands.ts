@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as vscode from 'vscode'
 import type { FileEntry } from './file-tree'
-import type { SessionFilesProvider } from './session-files-provider'
+import type { TerminalFilesProvider } from './terminal-files-provider'
 
 interface FileClipboard {
   uri: vscode.Uri
@@ -28,10 +28,10 @@ async function uniqueDestination(dir: string, baseName: string): Promise<vscode.
 /**
  * Registers the file-management context-menu commands (reveal, cut/copy/paste,
  * copy path, rename, delete) for the read-only Files panel. The panel is built
- * straight from the filesystem (see SessionFilesProvider), so these operate on
+ * straight from the filesystem (see TerminalFilesProvider), so these operate on
  * plain fs paths via vscode.workspace.fs rather than any workspace-folder API.
  */
-export function registerFileCommands(context: vscode.ExtensionContext, filesProvider: SessionFilesProvider): void {
+export function registerFileCommands(context: vscode.ExtensionContext, filesProvider: TerminalFilesProvider): void {
   let clipboard: FileClipboard | null = null
 
   const setClipboard = (value: FileClipboard | null): void => {

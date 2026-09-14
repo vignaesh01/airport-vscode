@@ -2,7 +2,7 @@ import * as vscode from 'vscode'
 import { AGENTS } from './agents'
 import { listShells } from './shells'
 
-export interface NewSessionChoice {
+export interface NewTerminalChoice {
   folder: string
   agentId: string
   shellPath?: string
@@ -15,7 +15,7 @@ const BROWSE_FOLDER = '__browse__'
  * QuickPick-based folder / shell / agent picker — replaces the Electron
  * app's NewSessionDialog.tsx. Returns undefined if the user cancels any step.
  */
-export async function runNewSessionFlow(): Promise<NewSessionChoice | undefined> {
+export async function runNewTerminalFlow(): Promise<NewTerminalChoice | undefined> {
   const folder = await pickFolder()
   if (!folder) return undefined
 
@@ -38,8 +38,8 @@ async function pickFolder(): Promise<string | undefined> {
   items.push({ label: '$(file-directory) Browse…', value: BROWSE_FOLDER })
 
   const picked = await vscode.window.showQuickPick(items, {
-    title: 'Airport: New session — pick a folder',
-    placeHolder: 'Select the working directory for this session'
+    title: 'Airport: New terminal — pick a folder',
+    placeHolder: 'Select the working directory for this terminal'
   })
   if (!picked) return undefined
   if (picked.value !== BROWSE_FOLDER) return picked.value
@@ -58,8 +58,8 @@ async function pickShell(): Promise<string | undefined> {
   }
 
   const picked = await vscode.window.showQuickPick(items, {
-    title: 'Airport: New session — pick a shell',
-    placeHolder: 'Which shell should host this session?'
+    title: 'Airport: New terminal — pick a shell',
+    placeHolder: 'Which shell should host this terminal?'
   })
   return picked?.value
 }
@@ -67,8 +67,8 @@ async function pickShell(): Promise<string | undefined> {
 async function pickAgent(): Promise<string | undefined> {
   const items = AGENTS.map((a) => ({ label: a.label, value: a.id }))
   const picked = await vscode.window.showQuickPick(items, {
-    title: 'Airport: New session — pick an agent',
-    placeHolder: 'Which agent should run in this session?'
+    title: 'Airport: New terminal — pick an agent',
+    placeHolder: 'Which agent should run in this terminal?'
   })
   return picked?.value
 }

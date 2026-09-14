@@ -1,5 +1,5 @@
 import { Terminal as HeadlessTerminal } from '@xterm/headless'
-import { classifyStatus, type SessionStatus } from './status-engine'
+import { classifyStatus, type TerminalStatus } from './status-engine'
 
 const STATUS_POLL_MS = 200
 /** How many rows above the cursor's own row to scan for a prompt shape. */
@@ -33,10 +33,10 @@ function recentLines(term: HeadlessTerminal): string[] {
 }
 
 /**
- * Reconstructs a session's rendered terminal state from a raw byte stream
+ * Reconstructs a terminal's rendered terminal state from a raw byte stream
  * (VS Code's `TerminalShellExecution.read()`) using a headless xterm
  * instance, and classifies status off it exactly the way the Electron app's
- * Terminal.tsx did off a real xterm.js buffer. One instance per session.
+ * Terminal.tsx did off a real xterm.js buffer. One instance per terminal.
  */
 /**
  * Renders every visible row (not just the ones near the cursor) into one
@@ -53,20 +53,20 @@ function fullScreenSnapshot(term: HeadlessTerminal): string {
   return lines.join('\n')
 }
 
-export class SessionStatusTracker {
+export class TerminalStatusTracker {
   private readonly term: HeadlessTerminal
   private lastOutputAt: number | null = null
   private lastSnapshot: string | null = null
   private exited = false
-  private lastReportedStatus: SessionStatus | null = null
-  private pendingStatus: SessionStatus | null = null
+  private lastReportedStatus: TerminalStatus | null = null
+  private pendingStatus: TerminalStatus | null = null
   private pendingCount = 0
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private disposed = false
   private lastRenameMatch: string | null = null
 
   constructor(
-    private readonly onStatusChange: (status: SessionStatus) => void,
+    private readonly onStatusChange: (status: TerminalStatus) => void,
     private readonly onTitleChange?: (title: string) => void,
     /**
      * Fallback for agents (Antigravity included) that don't set the terminal
@@ -87,7 +87,7 @@ export class SessionStatusTracker {
       allowProposedApi: true
     })
     this.pollTimer = setInterval(() => this.reportStatus(), STATUS_POLL_MS)
-    // Agents like Claude Code rename their session (e.g. via `/rename`) by
+    // Agents like Claude Code rename their terminal (e.g. via `/rename`) by
     // emitting an OSC 0/2 title escape sequence, same as any terminal app
     // changing its tab title — xterm parses that for us.
     if (this.onTitleChange) {
@@ -105,7 +105,7 @@ export class SessionStatusTracker {
     // Some agents (Claude Code included) periodically emit escape sequences
     // that don't change anything on screen — e.g. a bare OSC 104 color-reset
     // heartbeat — sometimes more often than GREEN_QUIET_MS. Treating every
-    // raw chunk as "activity" made such sessions sit on the yellow/spinner
+    // raw chunk as "activity" made such terminals sit on the yellow/spinner
     // icon forever, since the idle timer kept getting reset by bytes the
     // user never actually saw change. Only a chunk that actually alters the
     // rendered screen counts as activity now.
@@ -138,7 +138,7 @@ export class SessionStatusTracker {
   }
 
   /** Current status without waiting for the next poll tick. */
-  get status(): SessionStatus {
+  get status(): TerminalStatus {
     return classifyStatus({
       exited: this.exited,
       now: Date.now(),
