@@ -3,8 +3,8 @@
   "displayName": "Airport",
   "description": "Run Claude Code, Codex, Devin, and other AI coding agents side by side in VS Code terminals — without losing track of who needs you.",
   "version": "0.1.0",
-  "publisher": "airport",
-  "private": true,
+  "publisher": "VignaeshRamA",
+  "repository": "https://github.com/vignaesh01/airport-vscoder",
   "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.93.0"
@@ -77,6 +77,14 @@
         "title": "Airport: Turn On Notifications"
       },
       {
+        "command": "airport.turnOffOsNotifications",
+        "title": "Airport: Turn Off OS Notifications"
+      },
+      {
+        "command": "airport.turnOnOsNotifications",
+        "title": "Airport: Turn On OS Notifications"
+      },
+      {
         "command": "airport.resumeSessions",
         "title": "Airport: Resume Previous Sessions"
       },
@@ -126,6 +134,14 @@
         {
           "command": "airport.turnOnNotifications",
           "when": "!airport.notificationsEnabled"
+        },
+        {
+          "command": "airport.turnOffOsNotifications",
+          "when": "airport.osNotificationsEnabled"
+        },
+        {
+          "command": "airport.turnOnOsNotifications",
+          "when": "!airport.osNotificationsEnabled"
         }
       ],
       "view/title": [
@@ -141,6 +157,14 @@
         {
           "command": "airport.turnOnNotifications",
           "when": "view == airport.sessions && !airport.notificationsEnabled"
+        },
+        {
+          "command": "airport.turnOffOsNotifications",
+          "when": "view == airport.sessions && airport.osNotificationsEnabled"
+        },
+        {
+          "command": "airport.turnOnOsNotifications",
+          "when": "view == airport.sessions && !airport.osNotificationsEnabled"
         }
       ],
       "view/item/context": [

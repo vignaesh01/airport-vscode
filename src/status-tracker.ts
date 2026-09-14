@@ -38,9 +38,25 @@ function recentLines(term: HeadlessTerminal): string[] {
  * instance, and classifies status off it exactly the way the Electron app's
  * Terminal.tsx did off a real xterm.js buffer. One instance per session.
  */
+/**
+ * Renders every visible row (not just the ones near the cursor) into one
+ * string, so callers can tell whether a chunk actually changed anything the
+ * user would see.
+ */
+function fullScreenSnapshot(term: HeadlessTerminal): string {
+  const buf = term.buffer.active
+  const lines: string[] = []
+  for (let row = buf.baseY; row < buf.baseY + term.rows; row++) {
+    const line = buf.getLine(row)
+    lines.push(line ? line.translateToString(true) : '')
+  }
+  return lines.join('\n')
+}
+
 export class SessionStatusTracker {
   private readonly term: HeadlessTerminal
   private lastOutputAt: number | null = null
+  private lastSnapshot: string | null = null
   private exited = false
   private lastReportedStatus: SessionStatus | null = null
   private pendingStatus: SessionStatus | null = null
@@ -85,8 +101,19 @@ export class SessionStatusTracker {
   /** Feed a chunk of raw terminal output (escape sequences included). */
   write(chunk: string): void {
     if (this.disposed) return
-    this.lastOutputAt = Date.now()
     this.term.write(chunk)
+    // Some agents (Claude Code included) periodically emit escape sequences
+    // that don't change anything on screen — e.g. a bare OSC 104 color-reset
+    // heartbeat — sometimes more often than GREEN_QUIET_MS. Treating every
+    // raw chunk as "activity" made such sessions sit on the yellow/spinner
+    // icon forever, since the idle timer kept getting reset by bytes the
+    // user never actually saw change. Only a chunk that actually alters the
+    // rendered screen counts as activity now.
+    const snapshot = fullScreenSnapshot(this.term)
+    if (snapshot !== this.lastSnapshot) {
+      this.lastSnapshot = snapshot
+      this.lastOutputAt = Date.now()
+    }
     this.checkRenameConfirmation()
     this.reportStatus()
   }

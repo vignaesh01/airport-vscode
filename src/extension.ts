@@ -42,6 +42,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(manager.onDidChange(updateNotificationsEnabledContext))
   updateNotificationsEnabledContext()
 
+  const updateOsNotificationsEnabledContext = (): void => {
+    void vscode.commands.executeCommand('setContext', 'airport.osNotificationsEnabled', manager.osNotificationsOn)
+  }
+  context.subscriptions.push(manager.onDidChange(updateOsNotificationsEnabledContext))
+  updateOsNotificationsEnabledContext()
+
   const updateBadge = (): void => {
     const count = manager.needsYouCount()
     treeView.badge =
@@ -103,6 +109,22 @@ export function activate(context: vscode.ExtensionContext): void {
       manager.toggleNotifications()
       vscode.window.setStatusBarMessage(
         `Airport notifications ${manager.notificationsOn ? 'enabled' : 'disabled'}`,
+        3000
+      )
+    }),
+
+    vscode.commands.registerCommand('airport.turnOffOsNotifications', () => {
+      manager.toggleOsNotifications()
+      vscode.window.setStatusBarMessage(
+        `Airport OS notifications ${manager.osNotificationsOn ? 'enabled' : 'disabled'}`,
+        3000
+      )
+    }),
+
+    vscode.commands.registerCommand('airport.turnOnOsNotifications', () => {
+      manager.toggleOsNotifications()
+      vscode.window.setStatusBarMessage(
+        `Airport OS notifications ${manager.osNotificationsOn ? 'enabled' : 'disabled'}`,
         3000
       )
     }),

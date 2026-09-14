@@ -4,6 +4,7 @@ import { AGENTS } from './agents'
 import { getBranch } from './git'
 import { SessionStatusTracker } from './status-tracker'
 import { shouldNotify, type SessionStatus } from './status-engine'
+import { sendOsNotification } from './os-notify'
 import type { SessionRecord, SessionsFile } from './session'
 import { EMPTY_SESSIONS_FILE } from './session'
 
@@ -321,6 +322,16 @@ export class SessionManager implements vscode.Disposable {
     runtime.status = status
     this.notifyChange()
 
+    // notifiedAs latches which status (red/green) we've already notified for,
+    // so a run of identical repeated classifications doesn't re-fire. But
+    // once the session moves on to new work (yellow) or exits (grey), that
+    // latch needs to clear — otherwise a *second* task that ends the same way
+    // (e.g. green again) would be silently swallowed by "already notified as
+    // green" from the first task, potentially minutes/hours earlier.
+    if (status !== 'red' && status !== 'green') {
+      runtime.notifiedAs = undefined
+    }
+
     const isActiveAndFocused = vscode.window.state.focused && this.activeId === id
     if (
       shouldNotify({
@@ -343,6 +354,9 @@ export class SessionManager implements vscode.Disposable {
             this.setActive(id)
           }
         })
+        if (this.osNotificationsEnabled) {
+          sendOsNotification(title, session.name, (detail) => this.output.appendLine(`OS notification failed: ${detail}`))
+        }
       }
     }
   }
@@ -357,6 +371,17 @@ export class SessionManager implements vscode.Disposable {
 
   toggleNotifications(): void {
     this.notificationsEnabled = !this.notificationsEnabled
+    this.notifyChange()
+  }
+
+  private osNotificationsEnabled = true
+
+  get osNotificationsOn(): boolean {
+    return this.osNotificationsEnabled
+  }
+
+  toggleOsNotifications(): void {
+    this.osNotificationsEnabled = !this.osNotificationsEnabled
     this.notifyChange()
   }
 
