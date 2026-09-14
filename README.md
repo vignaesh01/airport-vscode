@@ -26,7 +26,8 @@ on.
 - **Know who needs you** without checking every tab: terminals are color-coded so a blocked one
   stands out immediately.
 - **Browse each terminal's files** in a lightweight panel that follows whichever terminal is
-  selected, without touching your workspace folders.
+  selected, without touching your workspace folders — letting you open multiple workspaces inside
+  a single VS Code window.
 - **Pick up where you left off** — Airport offers to resume your previous terminals the next time
   you open the workspace.
 
