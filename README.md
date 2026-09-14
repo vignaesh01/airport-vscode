@@ -3,6 +3,8 @@
 Run Claude Code, Codex, Devin, and other AI coding agents side by side — in VS Code's own
 terminals — and see at a glance which ones need you.
 
+![Airport: multiple AI agent terminals running side by side, with the sidebar showing which one needs you](media/hero.gif)
+
 If you juggle several AI agent terminals at once, you know the problem: they're all just terminal
 tabs, so you end up alt-tabbing between them to check whether one is still thinking or has been
 sitting idle waiting for an answer for the last five minutes. Airport adds a sidebar that tracks
@@ -21,27 +23,35 @@ every terminal's status for you, so you only switch to the ones that actually ne
 - **Pick up where you left off** — Airport offers to resume your previous terminals the next time
   you open the workspace.
 
-## Status lights
+![The Airport sidebar listing several agent terminals with status lights, and the Files view below it](media/sidebar-overview.png)
+
+## Terminal Status
 
 | | Status | Meaning |
 |---|---|---|
-| 🔴 | **Needs you** | The agent is blocked on a question or a permission prompt |
-| 🟡 | **Working** | The agent is thinking or running a tool |
-| 🟢 | **Done** | The agent finished its turn and is idle |
-| ⚪ | **Exited** | The terminal process ended |
+| <img src="media/icon-needs-you.png" width="16" alt="Bell icon, colored red"> | **Needs you** | The agent is blocked on a question or a permission prompt |
+| <img src="media/icon-working.png" width="16" alt="Sync icon, colored yellow"> | **Working** | The agent is thinking or running a tool |
+| <img src="media/icon-done.png" width="16" alt="Check mark icon, colored green"> | **Done** | The agent finished its turn and is idle |
+
 
 ## Getting started
 
 1. Install the extension and open the **Airport** icon in the Activity Bar.
 2. Click **+** in the Terminals view and pick an agent to start.
+
+   ![Clicking + in the Terminals view and picking an agent from the quick-pick](media/new-terminal-picker.gif)
 3. Work as usual in the terminal that opens — Airport watches its output in the background and
-   updates the status light for you.
+   updates the status for you.
 4. Click any terminal in the sidebar to jump straight to it, or use the **Files** view
    underneath to browse its folder without leaving the sidebar.
+
+   ![The Files view showing a terminal's folder contents](media/files-view.gif)
 
 Notifications can be turned on so you get an OS notification when a terminal needs you — toggle
 them from the Terminals view's toolbar or the Command Palette (**Airport: Turn On/Off
 Notifications**).
+
+![A notification telling you a terminal needs your attention](media/notification.png)
 
 ## Requirements
 
