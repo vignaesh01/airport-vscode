@@ -4,7 +4,7 @@ import { TerminalManager } from './terminal-manager'
 import { TerminalTreeProvider } from './terminal-tree-provider'
 import { TerminalFilesProvider } from './terminal-files-provider'
 import { registerFileCommands } from './file-commands'
-import { runNewTerminalFlow } from './new-terminal-flow'
+import { runNewTerminalFlow, pickAgent } from './new-terminal-flow'
 import type { TerminalRecord } from './terminal'
 
 const VIEW_ID = 'airport.terminals'
@@ -29,6 +29,9 @@ export function activate(context: vscode.ExtensionContext): void {
   })
   context.subscriptions.push(filesView)
   registerFileCommands(context, filesProvider)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('airport.filesRefresh', () => filesProvider.refresh())
+  )
 
   const updateHasActiveTerminalContext = (): void => {
     void vscode.commands.executeCommand('setContext', 'airport.hasActiveTerminal', manager.getActiveId() !== null)
@@ -69,6 +72,16 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('airport.closeTerminal', (terminal: TerminalRecord) => {
       manager.close(terminal.id)
+    }),
+
+    vscode.commands.registerCommand('airport.duplicateTerminal', (terminal: TerminalRecord) => {
+      manager.create(terminal.folder, terminal.agentId, terminal.shellPath)
+    }),
+
+    vscode.commands.registerCommand('airport.duplicateTerminalWithAgent', async (terminal: TerminalRecord) => {
+      const agentId = await pickAgent()
+      if (!agentId) return
+      manager.create(terminal.folder, agentId, terminal.shellPath)
     }),
 
     vscode.commands.registerCommand('airport.viewFolder', (terminal: TerminalRecord) => {

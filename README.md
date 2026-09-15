@@ -54,6 +54,11 @@ on.
    underneath to browse its folder without leaving the sidebar.
 
    ![The Files view showing a terminal's folder contents](media/files-view.gif)
+5. Right-click a terminal for more actions: **Duplicate Terminal**, **Duplicate Terminal with
+   Another AI Agent** (pick a different agent to run in the copy), **Rename**, **Open Folder in
+   File Explorer**, and **Close**.
+
+   ![Right-clicking a terminal to show Duplicate Terminal, Duplicate Terminal with Another AI Agent, Rename, Open Folder in File Explorer, and Close](media/terminal-context-menu.png)
 
 Notifications can be turned on so you get an OS notification when a terminal needs you — toggle
 them from the Terminals view's toolbar or the Command Palette (**Airport: Turn On/Off
