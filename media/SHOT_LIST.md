@@ -18,6 +18,7 @@ mostly viewed on a white background), and trim dead air from GIFs.
 | `icon-exited.png` | Icon crop | Tight crop of the gray `circle-outline` icon from a sidebar row, same size/background treatment as above. |
 | `files-view.gif` | GIF | The Files view panel showing a terminal's folder contents, with the sidebar terminal that's selected visible above it. |
 | `notification.png` | Screenshot | An OS-level notification popup ("this terminal needs you") triggered by Airport, with VS Code visible behind it. |
+| `terminal-context-menu.png` | Screenshot | Right-clicking a terminal row in the Terminals view with the context menu open, showing all five options in order: Duplicate Terminal, Duplicate Terminal with Another AI Agent, Rename, Open Folder in File Explorer, Close. |
 
 The four `icon-*.png` crops are the exact codicons Airport uses (see `src/terminal-tree-provider.ts`):
 `bell-dot` (needs you), `sync` (working), `check` (done), `circle-outline` (exited) — each tinted

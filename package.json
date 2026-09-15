@@ -1,8 +1,8 @@
 {
   "name": "airport",
   "displayName": "Airport",
-  "description": "Run Claude Code, Codex, Devin, and other AI coding agents side by side in VS Code terminals — without losing track of who needs you.",
-  "version": "0.1.1",
+  "description": "Run Claude Code, Codex, Devin, Antigravity and other AI coding agents side by side in VS Code terminals across multiple workspaces in a single window — without losing track of who needs you.",
+  "version": "0.1.2",
   "publisher": "VignaeshRamA",
   "repository": "https://github.com/vignaesh01/airport-vscode",
   "icon": "resources/icon.png",
@@ -65,6 +65,14 @@
         "icon": "$(folder-opened)"
       },
       {
+        "command": "airport.duplicateTerminal",
+        "title": "Airport: Duplicate Terminal"
+      },
+      {
+        "command": "airport.duplicateTerminalWithAgent",
+        "title": "Airport: Duplicate Terminal with Another AI Agent"
+      },
+      {
         "command": "airport.selectTerminal",
         "title": "Airport: Open Terminal"
       },
@@ -123,6 +131,11 @@
       {
         "command": "airport.file.delete",
         "title": "Delete"
+      },
+      {
+        "command": "airport.filesRefresh",
+        "title": "Airport: Refresh Files",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -165,23 +178,38 @@
         {
           "command": "airport.turnOnOsNotifications",
           "when": "view == airport.terminals && !airport.osNotificationsEnabled"
+        },
+        {
+          "command": "airport.filesRefresh",
+          "when": "view == airport.files",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
         {
+          "command": "airport.duplicateTerminal",
+          "when": "view == airport.terminals && viewItem == airportTerminal",
+          "group": "1_terminalActions@1"
+        },
+        {
+          "command": "airport.duplicateTerminalWithAgent",
+          "when": "view == airport.terminals && viewItem == airportTerminal",
+          "group": "1_terminalActions@2"
+        },
+        {
           "command": "airport.renameTerminal",
           "when": "view == airport.terminals && viewItem == airportTerminal",
-          "group": "inline@1"
+          "group": "1_terminalActions@3"
         },
         {
           "command": "airport.viewFolder",
           "when": "view == airport.terminals && viewItem == airportTerminal",
-          "group": "inline@2"
+          "group": "1_terminalActions@4"
         },
         {
           "command": "airport.closeTerminal",
           "when": "view == airport.terminals && viewItem == airportTerminal",
-          "group": "inline@3"
+          "group": "1_terminalActions@5"
         },
         {
           "command": "airport.file.reveal",

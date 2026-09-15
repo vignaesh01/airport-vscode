@@ -64,7 +64,7 @@ async function pickShell(): Promise<string | undefined> {
   return picked?.value
 }
 
-async function pickAgent(): Promise<string | undefined> {
+export async function pickAgent(): Promise<string | undefined> {
   const items = AGENTS.map((a) => ({ label: a.label, value: a.id }))
   const picked = await vscode.window.showQuickPick(items, {
     title: 'Airport: New terminal — pick an agent',
