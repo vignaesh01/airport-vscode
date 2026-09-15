@@ -1,7 +1,7 @@
 # ✈️ Airport
 
-Run Claude Code, Codex, Devin, and other AI coding agents side by side — in VS Code's own
-terminals — and see at a glance which ones need you.
+Run Claude Code, Codex, Devin, Antigravity and other AI coding agents side by side — in VS Code's own
+terminals, across multiple workspaces in a single window — and see at a glance which ones need you.
 
 ![Airport: multiple AI agent terminals running side by side, with the sidebar showing which one needs you](media/hero.gif)
 
