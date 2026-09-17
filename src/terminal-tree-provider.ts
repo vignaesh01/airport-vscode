@@ -31,9 +31,16 @@ const STATUS_LABEL: Record<TerminalStatus, string> = {
   grey: 'Exited'
 }
 
-export class TerminalTreeProvider implements vscode.TreeDataProvider<TerminalRecord>, vscode.Disposable {
+const DRAG_MIME_TYPE = 'application/vnd.code.tree.airportTerminals'
+
+export class TerminalTreeProvider
+  implements vscode.TreeDataProvider<TerminalRecord>, vscode.TreeDragAndDropController<TerminalRecord>, vscode.Disposable
+{
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TerminalRecord | undefined | void>()
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event
+
+  readonly dragMimeTypes = [DRAG_MIME_TYPE]
+  readonly dropMimeTypes = [DRAG_MIME_TYPE]
 
   constructor(private readonly manager: TerminalManager) {
     manager.onDidChange(() => this.onDidChangeTreeDataEmitter.fire())
@@ -68,5 +75,19 @@ export class TerminalTreeProvider implements vscode.TreeDataProvider<TerminalRec
 
   getChildren(): TerminalRecord[] {
     return this.manager.list()
+  }
+
+  handleDrag(source: readonly TerminalRecord[], dataTransfer: vscode.DataTransfer): void {
+    dataTransfer.set(DRAG_MIME_TYPE, new vscode.DataTransferItem(source.map((t) => t.id)))
+  }
+
+  handleDrop(target: TerminalRecord | undefined, dataTransfer: vscode.DataTransfer): void {
+    const item = dataTransfer.get(DRAG_MIME_TYPE)
+    if (!item) return
+    const draggedIds = item.value as string[]
+    for (const id of draggedIds) {
+      if (id === target?.id) continue
+      this.manager.reorder(id, target?.id ?? null)
+    }
   }
 }
