@@ -245,6 +245,24 @@ export class TerminalManager implements vscode.Disposable {
     this.notifyChange()
   }
 
+  /**
+   * Moves `id` to sit just before `beforeId` (or to the end when `beforeId`
+   * is null), for drag-and-drop reordering in the tree view.
+   */
+  reorder(id: string, beforeId: string | null): void {
+    const from = this.terminals.findIndex((s) => s.id === id)
+    if (from === -1) return
+    const [record] = this.terminals.splice(from, 1)
+    const to = beforeId ? this.terminals.findIndex((s) => s.id === beforeId) : -1
+    if (to === -1) {
+      this.terminals.push(record)
+    } else {
+      this.terminals.splice(to, 0, record)
+    }
+    this.persist()
+    this.notifyChange()
+  }
+
   rename(id: string, name: string): void {
     const trimmed = name.trim()
     if (!trimmed) return

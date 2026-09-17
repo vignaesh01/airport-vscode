@@ -18,11 +18,14 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(treeProvider)
   const treeView = vscode.window.createTreeView(VIEW_ID, {
     treeDataProvider: treeProvider,
-    showCollapseAll: false
+    showCollapseAll: false,
+    dragAndDropController: treeProvider
   })
   context.subscriptions.push(treeView)
 
   const filesProvider = new TerminalFilesProvider(manager)
+  context.subscriptions.push(filesProvider)
+  context.subscriptions.push(vscode.window.registerFileDecorationProvider(filesProvider))
   const filesView = vscode.window.createTreeView(FILES_VIEW_ID, {
     treeDataProvider: filesProvider,
     showCollapseAll: true
