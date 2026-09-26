@@ -10,6 +10,16 @@ import type { TerminalRecord } from './terminal'
 const VIEW_ID = 'airport.terminals'
 const FILES_VIEW_ID = 'airport.files'
 
+async function promptRenameTerminal(manager: TerminalManager, terminal: TerminalRecord): Promise<void> {
+  const name = await vscode.window.showInputBox({
+    title: 'Rename terminal',
+    value: terminal.name,
+    prompt: 'New name for this terminal'
+  })
+  if (name === undefined) return
+  manager.rename(terminal.id, name)
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const manager = new TerminalManager(context)
   context.subscriptions.push(manager)
@@ -31,7 +41,7 @@ export function activate(context: vscode.ExtensionContext): void {
     showCollapseAll: true
   })
   context.subscriptions.push(filesView)
-  registerFileCommands(context, filesProvider)
+  registerFileCommands(context, filesProvider, filesView)
   context.subscriptions.push(
     vscode.commands.registerCommand('airport.filesRefresh', () => filesProvider.refresh())
   )
@@ -70,7 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand('airport.selectTerminal', (terminal: TerminalRecord) => {
-      manager.setActive(terminal.id)
+      manager.setActive(terminal.id, true)
     }),
 
     vscode.commands.registerCommand('airport.closeTerminal', (terminal: TerminalRecord) => {
@@ -103,14 +113,13 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('airport.renameTerminal', async (terminal: TerminalRecord) => {
-      const name = await vscode.window.showInputBox({
-        title: 'Rename terminal',
-        value: terminal.name,
-        prompt: 'New name for this terminal'
-      })
-      if (name === undefined) return
-      manager.rename(terminal.id, name)
+    vscode.commands.registerCommand('airport.renameTerminal', async (arg?: TerminalRecord) => {
+      // Invoked either from the context menu (with the clicked terminal) or
+      // via the F2 keybinding (with no argument) while the Terminals view
+      // itself has focus, which falls back to its current selection.
+      const terminal = arg ?? treeView.selection[0]
+      if (!terminal) return
+      await promptRenameTerminal(manager, terminal)
     }),
 
     vscode.commands.registerCommand('airport.turnOffNotifications', () => {
