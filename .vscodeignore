@@ -11,3 +11,4 @@ vitest.config.ts
 .gitignore
 **/*.test.js
 **/*.test.ts.map
+media/**
