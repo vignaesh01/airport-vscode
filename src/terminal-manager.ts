@@ -273,7 +273,15 @@ export class TerminalManager implements vscode.Disposable {
     this.notifyChange()
   }
 
-  setActive(id: string): void {
+  /**
+   * @param preserveFocus When true, reveals the terminal without stealing
+   * keyboard focus from wherever it currently is — used when a tile is
+   * clicked in the Terminals view, so an immediate F2 still targets the
+   * tile just clicked instead of landing nowhere. Other callers (creating a
+   * terminal, jumping to one from a notification) want the normal
+   * focus-follows behavior.
+   */
+  setActive(id: string, preserveFocus = false): void {
     const previousId = this.activeId
     if (previousId && previousId !== id) {
       const prevRuntime = this.runtime.get(previousId)
@@ -281,7 +289,7 @@ export class TerminalManager implements vscode.Disposable {
     }
     this.activeId = id
     const runtime = this.runtime.get(id)
-    runtime?.nativeTerminal?.show()
+    runtime?.nativeTerminal?.show(preserveFocus)
     this.persist()
     this.notifyChange()
   }

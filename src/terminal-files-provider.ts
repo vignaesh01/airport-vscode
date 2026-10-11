@@ -102,6 +102,11 @@ export class TerminalFilesProvider
     return folder !== null && normalizePath(entry.fsPath) === normalizePath(folder)
   }
 
+  /** Whether `entry` is the active terminal's working-directory root, which can't be renamed/deleted. */
+  isRootEntry(entry: FileEntry): boolean {
+    return this.isRoot(entry)
+  }
+
   getTreeItem(entry: FileEntry): vscode.TreeItem {
     const isRoot = this.isRoot(entry)
     const item = new vscode.TreeItem(

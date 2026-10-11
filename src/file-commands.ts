@@ -31,7 +31,11 @@ async function uniqueDestination(dir: string, baseName: string): Promise<vscode.
  * straight from the filesystem (see TerminalFilesProvider), so these operate on
  * plain fs paths via vscode.workspace.fs rather than any workspace-folder API.
  */
-export function registerFileCommands(context: vscode.ExtensionContext, filesProvider: TerminalFilesProvider): void {
+export function registerFileCommands(
+  context: vscode.ExtensionContext,
+  filesProvider: TerminalFilesProvider,
+  filesView: vscode.TreeView<FileEntry>
+): void {
   let clipboard: FileClipboard | null = null
 
   const setClipboard = (value: FileClipboard | null): void => {
@@ -79,7 +83,15 @@ export function registerFileCommands(context: vscode.ExtensionContext, filesProv
       filesProvider.refresh()
     }),
 
-    vscode.commands.registerCommand('airport.file.rename', async (entry: FileEntry) => {
+    vscode.commands.registerCommand('airport.file.rename', async (arg?: FileEntry) => {
+      // Invoked either from the context menu (with the clicked entry) or via
+      // the F2 keybinding (with no argument), which falls back to whatever
+      // is currently selected in the Files view.
+      const entry = arg ?? filesView.selection[0]
+      // The root entry (the terminal's working directory) has no rename
+      // menu item, since renaming it would just move the whole cwd — F2
+      // has no per-item "when" clause, so it must check explicitly.
+      if (!entry || filesProvider.isRootEntry(entry)) return
       const name = await vscode.window.showInputBox({
         title: 'Rename',
         value: entry.name,
