@@ -241,9 +241,12 @@ export class TerminalManager implements vscode.Disposable {
       // this terminal's shellIntegration to come up (with the same ~3s
       // fallback the API docs recommend) before sending the command.
       const command = resuming
-        ? (agent.resumeCommand?.(record.id, !!record.pinnedSession, record.folder) ?? agent.command)
+        ? (agent.resumeCommand?.(record.id, !!record.pinnedSession, record.folder, record.agentSessionId) ?? agent.command)
         : (agent.startCommand?.(record.id) ?? agent.command)
       this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(command as string))
+    }
+    if (agent?.detectSessionId && !existing && !(resuming && record.agentSessionId)) {
+      this.watchForSessionId(record, agent.detectSessionId)
     }
 
     getBranch(record.folder).then((branch) => {
@@ -253,6 +256,26 @@ export class TerminalManager implements vscode.Disposable {
         this.notifyChange()
       }
     })
+  }
+
+  /** Polls until the agent creates its session, then stores the id on the record. */
+  private watchForSessionId(record: TerminalRecord, detect: NonNullable<(typeof AGENTS)[number]['detectSessionId']>): void {
+    const since = Date.now()
+    const timer = setInterval(() => {
+      const runtime = this.runtime.get(record.id)
+      if (!runtime?.nativeTerminal || Date.now() - since > 30 * 60_000) {
+        clearInterval(timer)
+        return
+      }
+      const claimed = new Set(this.terminals.map((t) => t.agentSessionId).filter((x): x is string => !!x))
+      const found = detect(since, claimed)
+      if (found) {
+        clearInterval(timer)
+        record.agentSessionId = found
+        this.output.appendLine(`[${record.name}] session id ${found}`)
+        this.persist()
+      }
+    }, 3000)
   }
 
   /** Finds a terminal VS Code restored on reopen that belongs to `record` and isn't claimed yet. */

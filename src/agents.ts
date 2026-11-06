@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -7,6 +7,21 @@ function hasSession(dir: string): boolean {
     return readdirSync(dir).some((f) => f.endsWith('.jsonl'))
   } catch {
     return false
+  }
+}
+
+/** Antigravity CLI keeps one `<conversation-id>.db` per conversation here. */
+function detectAntigravityConversation(since: number, claimed: ReadonlySet<string>): string | undefined {
+  const dir = join(homedir(), '.gemini', 'antigravity-cli', 'conversations')
+  try {
+    const fresh = readdirSync(dir)
+      .filter((f) => f.endsWith('.db'))
+      .map((f) => ({ id: f.slice(0, -3), born: statSync(join(dir, f)).birthtimeMs }))
+      .filter((c) => c.born >= since - 1000 && !claimed.has(c.id))
+      .sort((a, b) => a.born - b.born)
+    return fresh[0]?.id
+  } catch {
+    return undefined
   }
 }
 
@@ -20,7 +35,13 @@ export interface AgentDefinition {
    * agent continues its previous conversation. `sessionId` is the terminal's
    * stable id. Undefined = no known resume support; `command` is used instead.
    */
-  resumeCommand?: (sessionId: string, pinned: boolean, folder: string) => string
+  resumeCommand?: (sessionId: string, pinned: boolean, folder: string, detectedSessionId?: string) => string
+  /**
+   * For agents that pick their own session id: looks for the session created
+   * since `since` (epoch ms) that isn't in `claimed`, so it can be stored on the
+   * record and resumed precisely later. Returns undefined until it shows up.
+   */
+  detectSessionId?: (since: number, claimed: ReadonlySet<string>) => string | undefined
   /** Command for a brand-new terminal when the agent can be pinned to a session id up front. */
   startCommand?: (sessionId: string) => string
   /**
@@ -53,7 +74,8 @@ export const AGENTS: AgentDefinition[] = [
     label: 'Antigravity',
     command: 'agy',
     renameConfirmationPattern: /Conversation renamed to:\s*(.+)/,
-    resumeCommand: () => 'agy --continue'
+    detectSessionId: detectAntigravityConversation,
+    resumeCommand: (_id, _pinned, _folder, found) => (found ? `agy --conversation ${found}` : 'agy --continue')
   },
   { id: 'devin', label: 'Devin', command: 'devin', resumeCommand: () => 'devin --continue' },
   { id: 'shell', label: 'Shell' }
