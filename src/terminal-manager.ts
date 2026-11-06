@@ -358,7 +358,7 @@ export class TerminalManager implements vscode.Disposable {
   private present(id: string, preserveFocus: boolean): void {
     this.presentQueue = this.presentQueue.then(() =>
       vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Window, title: 'Switching terminal…' },
+        { location: vscode.ProgressLocation.Notification, title: 'Switching terminal…' },
         async () => {
           this.switching = true
           try {
