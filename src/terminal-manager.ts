@@ -25,6 +25,8 @@ interface Runtime {
   /** Which status (if any) an OS notification was already fired for. */
   notifiedAs: TerminalStatus | undefined
   lastActiveAt: number | undefined
+  /** True while this terminal is docked in the editor area (vs. the hidden Terminal panel). */
+  inEditor: boolean
 }
 
 /**
@@ -38,6 +40,8 @@ export class TerminalManager implements vscode.Disposable {
   private readonly runtime = new Map<string, Runtime>()
   private readonly disposables: vscode.Disposable[] = []
   private pendingResume: TerminalsFile | null = null
+  private presentQueue: Promise<void> = Promise.resolve()
+  private switching = false
   // Diagnostic channel for status-classification and rename debugging —
   // surfaced to users as "Airport" in the Output panel's dropdown.
   private readonly output = vscode.window.createOutputChannel('Airport')
@@ -99,10 +103,10 @@ export class TerminalManager implements vscode.Disposable {
     this.pendingResume = null
     for (const record of file.terminals) {
       this.terminals.push(record)
-      this.launch(record, false)
+      this.launch(record)
     }
     this.activeId = file.activeId ?? file.terminals[0]?.id ?? null
-    if (this.activeId) this.runtime.get(this.activeId)?.nativeTerminal?.show(true)
+    if (this.activeId) this.present(this.activeId, true)
     this.persist()
     this.notifyChange()
   }
@@ -182,7 +186,7 @@ export class TerminalManager implements vscode.Disposable {
     }, 3000)
   }
 
-  private launch(record: TerminalRecord, reveal = true): void {
+  private launch(record: TerminalRecord): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
     const nativeTerminal = vscode.window.createTerminal({
       name: record.name,
@@ -208,7 +212,8 @@ export class TerminalManager implements vscode.Disposable {
       status: undefined,
       branch: null,
       notifiedAs: undefined,
-      lastActiveAt: undefined
+      lastActiveAt: undefined,
+      inEditor: false
     })
 
     if (agent?.command) {
@@ -221,7 +226,6 @@ export class TerminalManager implements vscode.Disposable {
       // fallback the API docs recommend) before sending the command.
       this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(agent.command as string))
     }
-    if (reveal) nativeTerminal.show(true)
 
     getBranch(record.folder).then((branch) => {
       const runtime = this.runtime.get(record.id)
@@ -288,8 +292,7 @@ export class TerminalManager implements vscode.Disposable {
       if (prevRuntime) prevRuntime.lastActiveAt = Date.now()
     }
     this.activeId = id
-    const runtime = this.runtime.get(id)
-    runtime?.nativeTerminal?.show(preserveFocus)
+    this.present(id, preserveFocus)
     this.persist()
     this.notifyChange()
   }
@@ -321,7 +324,54 @@ export class TerminalManager implements vscode.Disposable {
     runtime.tracker.markExited()
   }
 
+  /**
+   * Shows only `id` in the editor area. Any other terminal currently docked
+   * in the editor is moved back to the (closed) Terminal panel, since the
+   * extension API can't hide an editor tab without disposing its terminal.
+   * Serialized because the move commands act on whichever terminal is active.
+   */
+  private present(id: string, preserveFocus: boolean): void {
+    this.presentQueue = this.presentQueue.then(() =>
+      vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Switching terminal…' },
+        async () => {
+          this.switching = true
+          try {
+            const target = this.runtime.get(id)
+            if (!target?.nativeTerminal) return
+            const stale = [...this.runtime.entries()].filter(
+              ([otherId, r]) => otherId !== id && r.inEditor && r.nativeTerminal
+            )
+            // Fast path: already the only terminal in the editor — just reveal it.
+            if (target.inEditor && stale.length === 0) {
+              target.nativeTerminal.show(preserveFocus)
+              return
+            }
+            for (const [, other] of stale) {
+              other.nativeTerminal?.show(true)
+              await vscode.commands.executeCommand('workbench.action.terminal.moveToTerminalPanel')
+              other.inEditor = false
+            }
+            target.nativeTerminal.show(true)
+            if (!target.inEditor) {
+              await vscode.commands.executeCommand('workbench.action.terminal.moveToEditor')
+              target.inEditor = true
+            }
+            // Single panel close at the end, after all moves, to limit flicker.
+            await vscode.commands.executeCommand('workbench.action.closePanel')
+            target.nativeTerminal.show(preserveFocus)
+          } catch (err) {
+            this.output.appendLine(`present failed: ${String(err)}`)
+          } finally {
+            this.switching = false
+          }
+        }
+      )
+    )
+  }
+
   private handleActiveTerminalChanged(term: vscode.Terminal | undefined): void {
+    if (this.switching) return
     const entry = [...this.runtime.entries()].find(([, r]) => r.nativeTerminal === term)
     if (!entry) return
     const [id] = entry
