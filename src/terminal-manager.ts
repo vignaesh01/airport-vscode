@@ -9,6 +9,7 @@ import type { TerminalRecord, TerminalsFile } from './terminal'
 import { EMPTY_TERMINALS_FILE } from './terminal'
 
 const STORAGE_KEY = 'airport.terminals'
+const TERMINAL_ID_ENV = 'AIRPORT_TERMINAL_ID'
 /**
  * Worst-case lag between the underlying condition (output actually went
  * quiet) and a poll confirming the resulting status change — see
@@ -103,7 +104,7 @@ export class TerminalManager implements vscode.Disposable {
     this.pendingResume = null
     for (const record of file.terminals) {
       this.terminals.push(record)
-      this.launch(record)
+      this.launch(record, true)
     }
     this.activeId = file.activeId ?? file.terminals[0]?.id ?? null
     if (this.activeId) this.present(this.activeId, true)
@@ -147,10 +148,11 @@ export class TerminalManager implements vscode.Disposable {
       agentId,
       name: `${agentId}-${id.slice(0, 4)}`,
       createdAt: Date.now(),
-      shellPath
+      shellPath,
+      pinnedSession: AGENTS.find((a) => a.id === agentId)?.startCommand ? true : undefined
     }
     this.terminals.push(record)
-    this.launch(record)
+    this.launch(record, false)
     this.setActive(id)
     this.persist()
     this.notifyChange()
@@ -186,13 +188,20 @@ export class TerminalManager implements vscode.Disposable {
     }, 3000)
   }
 
-  private launch(record: TerminalRecord): void {
+  private launch(record: TerminalRecord, resuming: boolean): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
-    const nativeTerminal = vscode.window.createTerminal({
-      name: record.name,
-      cwd: record.folder,
-      shellPath: record.shellPath
-    })
+    // VS Code may already have restored this terminal's process on reopen
+    // (persistent sessions); adopt it instead of creating a duplicate, and
+    // don't re-send the agent command into a session that is still running.
+    const existing = resuming ? this.findRestoredTerminal(record) : undefined
+    const nativeTerminal =
+      existing ??
+      vscode.window.createTerminal({
+        name: record.name,
+        cwd: record.folder,
+        shellPath: record.shellPath,
+        env: { [TERMINAL_ID_ENV]: record.id }
+      })
 
     const tracker = new TerminalStatusTracker(
       (status) => this.handleStatusChange(record.id, status),
@@ -216,7 +225,9 @@ export class TerminalManager implements vscode.Disposable {
       inEditor: false
     })
 
-    if (agent?.command) {
+    if (existing) {
+      // Already running; the tracker re-attaches on the next shell execution.
+    } else if (agent?.command) {
       // Shell integration isn't active the instant a terminal is created —
       // that's exactly why onDidStartTerminalShellExecution exists as a
       // separate event. Sending the command before it activates means that
@@ -224,7 +235,10 @@ export class TerminalManager implements vscode.Disposable {
       // never attached and the terminal sits with no status forever. Wait for
       // this terminal's shellIntegration to come up (with the same ~3s
       // fallback the API docs recommend) before sending the command.
-      this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(agent.command as string))
+      const command = resuming
+        ? (agent.resumeCommand?.(record.id, !!record.pinnedSession) ?? agent.command)
+        : (agent.startCommand?.(record.id) ?? agent.command)
+      this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(command as string))
     }
 
     getBranch(record.folder).then((branch) => {
@@ -234,6 +248,15 @@ export class TerminalManager implements vscode.Disposable {
         this.notifyChange()
       }
     })
+  }
+
+  /** Finds a terminal VS Code restored on reopen that belongs to `record` and isn't claimed yet. */
+  private findRestoredTerminal(record: TerminalRecord): vscode.Terminal | undefined {
+    const claimed = new Set([...this.runtime.values()].map((r) => r.nativeTerminal))
+    const envOf = (t: vscode.Terminal) =>
+      (t.creationOptions as vscode.TerminalOptions).env?.[TERMINAL_ID_ENV]
+    const free = vscode.window.terminals.filter((t) => !claimed.has(t) && t.exitStatus === undefined)
+    return free.find((t) => envOf(t) === record.id) ?? free.find((t) => t.name === record.name)
   }
 
   close(id: string): void {
