@@ -202,6 +202,9 @@ export class TerminalManager implements vscode.Disposable {
         cwd: record.folder,
         shellPath: record.shellPath,
         env: { [TERMINAL_ID_ENV]: record.id },
+        // Airport owns persistence (see Resume); stop VS Code from also restoring
+        // these as stray empty terminals when the window reopens.
+        isTransient: true,
         ...(inEditor ? { location: { viewColumn: vscode.ViewColumn.Active } } : {})
       })
 
