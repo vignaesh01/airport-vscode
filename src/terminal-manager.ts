@@ -236,7 +236,7 @@ export class TerminalManager implements vscode.Disposable {
       // this terminal's shellIntegration to come up (with the same ~3s
       // fallback the API docs recommend) before sending the command.
       const command = resuming
-        ? (agent.resumeCommand?.(record.id, !!record.pinnedSession) ?? agent.command)
+        ? (agent.resumeCommand?.(record.id, !!record.pinnedSession, record.folder) ?? agent.command)
         : (agent.startCommand?.(record.id) ?? agent.command)
       this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(command as string))
     }
