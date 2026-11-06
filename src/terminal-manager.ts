@@ -379,6 +379,8 @@ export class TerminalManager implements vscode.Disposable {
             if (!target.inEditor) {
               await vscode.commands.executeCommand('workbench.action.terminal.moveToEditor')
               target.inEditor = true
+              // Keep the terminal tab pinned to the first position in its group.
+              await vscode.commands.executeCommand('moveActiveEditor', { to: 'first', by: 'tab' })
             }
             // Single panel close at the end, after all moves, to limit flicker.
             await vscode.commands.executeCommand('workbench.action.closePanel')
