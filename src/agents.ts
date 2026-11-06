@@ -52,8 +52,9 @@ export const AGENTS: AgentDefinition[] = [
     id: 'antigravity',
     label: 'Antigravity',
     command: 'agy',
-    renameConfirmationPattern: /Conversation renamed to:\s*(.+)/
+    renameConfirmationPattern: /Conversation renamed to:\s*(.+)/,
+    resumeCommand: () => 'agy --continue'
   },
-  { id: 'devin', label: 'Devin', command: 'devin' },
+  { id: 'devin', label: 'Devin', command: 'devin', resumeCommand: () => 'devin --continue' },
   { id: 'shell', label: 'Shell' }
 ]
