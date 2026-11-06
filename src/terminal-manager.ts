@@ -152,7 +152,8 @@ export class TerminalManager implements vscode.Disposable {
       pinnedSession: AGENTS.find((a) => a.id === agentId)?.startCommand ? true : undefined
     }
     this.terminals.push(record)
-    this.launch(record, false)
+    // Created straight into the editor area: skips the panel-open + move round trip.
+    this.launch(record, false, true)
     this.setActive(id)
     this.persist()
     this.notifyChange()
@@ -188,7 +189,7 @@ export class TerminalManager implements vscode.Disposable {
     }, 3000)
   }
 
-  private launch(record: TerminalRecord, resuming: boolean): void {
+  private launch(record: TerminalRecord, resuming: boolean, inEditor = false): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
     // VS Code may already have restored this terminal's process on reopen
     // (persistent sessions); adopt it instead of creating a duplicate, and
@@ -200,7 +201,8 @@ export class TerminalManager implements vscode.Disposable {
         name: record.name,
         cwd: record.folder,
         shellPath: record.shellPath,
-        env: { [TERMINAL_ID_ENV]: record.id }
+        env: { [TERMINAL_ID_ENV]: record.id },
+        ...(inEditor ? { location: { viewColumn: vscode.ViewColumn.Active } } : {})
       })
 
     const tracker = new TerminalStatusTracker(
@@ -222,7 +224,7 @@ export class TerminalManager implements vscode.Disposable {
       branch: null,
       notifiedAs: undefined,
       lastActiveAt: undefined,
-      inEditor: false
+      inEditor: inEditor && !existing
     })
 
     if (existing) {
@@ -356,7 +358,7 @@ export class TerminalManager implements vscode.Disposable {
   private present(id: string, preserveFocus: boolean): void {
     this.presentQueue = this.presentQueue.then(() =>
       vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'Switching terminal…' },
+        { location: vscode.ProgressLocation.Window, title: 'Switching terminal…' },
         async () => {
           this.switching = true
           try {
@@ -367,6 +369,8 @@ export class TerminalManager implements vscode.Disposable {
             )
             // Fast path: already the only terminal in the editor — just reveal it.
             if (target.inEditor && stale.length === 0) {
+              target.nativeTerminal.show(true)
+              await vscode.commands.executeCommand('moveActiveEditor', { to: 'first', by: 'tab' })
               target.nativeTerminal.show(preserveFocus)
               return
             }
@@ -379,9 +383,9 @@ export class TerminalManager implements vscode.Disposable {
             if (!target.inEditor) {
               await vscode.commands.executeCommand('workbench.action.terminal.moveToEditor')
               target.inEditor = true
-              // Keep the terminal tab pinned to the first position in its group.
-              await vscode.commands.executeCommand('moveActiveEditor', { to: 'first', by: 'tab' })
             }
+            // Keep the terminal tab pinned to the first position in its group.
+            await vscode.commands.executeCommand('moveActiveEditor', { to: 'first', by: 'tab' })
             // Single panel close at the end, after all moves, to limit flicker.
             await vscode.commands.executeCommand('workbench.action.closePanel')
             target.nativeTerminal.show(preserveFocus)
