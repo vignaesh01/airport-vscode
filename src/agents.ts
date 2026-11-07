@@ -10,6 +10,31 @@ function hasSession(dir: string): boolean {
   }
 }
 
+/**
+ * Devin CLI drops a `<session-id>.lock` (ids look like `brisk-otter`) in its
+ * data dir's `session_locks` folder when a session starts. Windows keeps that
+ * dir under %APPDATA%; elsewhere it follows XDG data home.
+ */
+function detectDevinSession(since: number, claimed: ReadonlySet<string>): string | undefined {
+  const dirs = [
+    process.env.APPDATA && join(process.env.APPDATA, 'Devin', 'cli', 'session_locks'),
+    join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'devin', 'cli', 'session_locks')
+  ].filter((d): d is string => !!d)
+  for (const dir of dirs) {
+    try {
+      const fresh = readdirSync(dir)
+        .filter((f) => f.endsWith('.lock'))
+        .map((f) => ({ id: f.slice(0, -5), born: statSync(join(dir, f)).birthtimeMs }))
+        .filter((c) => c.born >= since - 1000 && !claimed.has(c.id))
+        .sort((a, b) => a.born - b.born)
+      if (fresh[0]) return fresh[0].id
+    } catch {
+      // dir doesn't exist on this platform — try the next one
+    }
+  }
+  return undefined
+}
+
 /** Antigravity CLI keeps one `<conversation-id>.db` per conversation here. */
 function detectAntigravityConversation(since: number, claimed: ReadonlySet<string>): string | undefined {
   const dir = join(homedir(), '.gemini', 'antigravity-cli', 'conversations')
@@ -77,6 +102,8 @@ export const AGENTS: AgentDefinition[] = [
     detectSessionId: detectAntigravityConversation,
     resumeCommand: (_id, _pinned, _folder, found) => (found ? `agy --conversation ${found}` : 'agy --continue')
   },
-  { id: 'devin', label: 'Devin', command: 'devin', resumeCommand: () => 'devin --continue' },
+  { id: 'devin', label: 'Devin', command: 'devin', detectSessionId: detectDevinSession,
+    resumeCommand: (_id, _pinned, _folder, found) => (found ? `devin --resume ${found}` : 'devin --continue')
+  },
   { id: 'shell', label: 'Shell' }
 ]
