@@ -9,6 +9,7 @@ import type { TerminalRecord, TerminalsFile } from './terminal'
 import { EMPTY_TERMINALS_FILE } from './terminal'
 
 const STORAGE_KEY = 'airport.terminals'
+const TERMINAL_ID_ENV = 'AIRPORT_TERMINAL_ID'
 /**
  * Worst-case lag between the underlying condition (output actually went
  * quiet) and a poll confirming the resulting status change — see
@@ -103,7 +104,7 @@ export class TerminalManager implements vscode.Disposable {
     this.pendingResume = null
     for (const record of file.terminals) {
       this.terminals.push(record)
-      this.launch(record)
+      this.launch(record, true)
     }
     this.activeId = file.activeId ?? file.terminals[0]?.id ?? null
     if (this.activeId) this.present(this.activeId, true)
@@ -147,10 +148,12 @@ export class TerminalManager implements vscode.Disposable {
       agentId,
       name: `${agentId}-${id.slice(0, 4)}`,
       createdAt: Date.now(),
-      shellPath
+      shellPath,
+      pinnedSession: AGENTS.find((a) => a.id === agentId)?.startCommand ? true : undefined
     }
     this.terminals.push(record)
-    this.launch(record)
+    // Created straight into the editor area: skips the panel-open + move round trip.
+    this.launch(record, false, true)
     this.setActive(id)
     this.persist()
     this.notifyChange()
@@ -186,13 +189,24 @@ export class TerminalManager implements vscode.Disposable {
     }, 3000)
   }
 
-  private launch(record: TerminalRecord): void {
+  private launch(record: TerminalRecord, resuming: boolean, inEditor = false): void {
     const agent = AGENTS.find((a) => a.id === record.agentId)
-    const nativeTerminal = vscode.window.createTerminal({
-      name: record.name,
-      cwd: record.folder,
-      shellPath: record.shellPath
-    })
+    // VS Code may already have restored this terminal's process on reopen
+    // (persistent sessions); adopt it instead of creating a duplicate, and
+    // don't re-send the agent command into a session that is still running.
+    const existing = resuming ? this.findRestoredTerminal(record) : undefined
+    const nativeTerminal =
+      existing ??
+      vscode.window.createTerminal({
+        name: record.name,
+        cwd: record.folder,
+        shellPath: record.shellPath,
+        env: { [TERMINAL_ID_ENV]: record.id },
+        // Airport owns persistence (see Resume); stop VS Code from also restoring
+        // these as stray empty terminals when the window reopens.
+        isTransient: true,
+        ...(inEditor ? { location: { viewColumn: vscode.ViewColumn.Active } } : {})
+      })
 
     const tracker = new TerminalStatusTracker(
       (status) => this.handleStatusChange(record.id, status),
@@ -213,10 +227,12 @@ export class TerminalManager implements vscode.Disposable {
       branch: null,
       notifiedAs: undefined,
       lastActiveAt: undefined,
-      inEditor: false
+      inEditor: inEditor && !existing
     })
 
-    if (agent?.command) {
+    if (existing) {
+      // Already running; the tracker re-attaches on the next shell execution.
+    } else if (agent?.command) {
       // Shell integration isn't active the instant a terminal is created —
       // that's exactly why onDidStartTerminalShellExecution exists as a
       // separate event. Sending the command before it activates means that
@@ -224,7 +240,13 @@ export class TerminalManager implements vscode.Disposable {
       // never attached and the terminal sits with no status forever. Wait for
       // this terminal's shellIntegration to come up (with the same ~3s
       // fallback the API docs recommend) before sending the command.
-      this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(agent.command as string))
+      const command = resuming
+        ? (agent.resumeCommand?.(record.id, !!record.pinnedSession, record.folder, record.agentSessionId) ?? agent.command)
+        : (agent.startCommand?.(record.id) ?? agent.command)
+      this.runAfterShellIntegration(nativeTerminal, () => nativeTerminal.sendText(command as string))
+    }
+    if (agent?.detectSessionId && !existing && !(resuming && record.agentSessionId)) {
+      this.watchForSessionId(record, agent.detectSessionId)
     }
 
     getBranch(record.folder).then((branch) => {
@@ -234,6 +256,35 @@ export class TerminalManager implements vscode.Disposable {
         this.notifyChange()
       }
     })
+  }
+
+  /** Polls until the agent creates its session, then stores the id on the record. */
+  private watchForSessionId(record: TerminalRecord, detect: NonNullable<(typeof AGENTS)[number]['detectSessionId']>): void {
+    const since = Date.now()
+    const timer = setInterval(() => {
+      const runtime = this.runtime.get(record.id)
+      if (!runtime?.nativeTerminal || Date.now() - since > 30 * 60_000) {
+        clearInterval(timer)
+        return
+      }
+      const claimed = new Set(this.terminals.map((t) => t.agentSessionId).filter((x): x is string => !!x))
+      const found = detect(since, claimed)
+      if (found) {
+        clearInterval(timer)
+        record.agentSessionId = found
+        this.output.appendLine(`[${record.name}] session id ${found}`)
+        this.persist()
+      }
+    }, 3000)
+  }
+
+  /** Finds a terminal VS Code restored on reopen that belongs to `record` and isn't claimed yet. */
+  private findRestoredTerminal(record: TerminalRecord): vscode.Terminal | undefined {
+    const claimed = new Set([...this.runtime.values()].map((r) => r.nativeTerminal))
+    const envOf = (t: vscode.Terminal) =>
+      (t.creationOptions as vscode.TerminalOptions).env?.[TERMINAL_ID_ENV]
+    const free = vscode.window.terminals.filter((t) => !claimed.has(t) && t.exitStatus === undefined)
+    return free.find((t) => envOf(t) === record.id) ?? free.find((t) => t.name === record.name)
   }
 
   close(id: string): void {
@@ -344,6 +395,8 @@ export class TerminalManager implements vscode.Disposable {
             )
             // Fast path: already the only terminal in the editor — just reveal it.
             if (target.inEditor && stale.length === 0) {
+              target.nativeTerminal.show(true)
+              await vscode.commands.executeCommand('moveActiveEditor', { to: 'first', by: 'tab' })
               target.nativeTerminal.show(preserveFocus)
               return
             }
@@ -357,6 +410,8 @@ export class TerminalManager implements vscode.Disposable {
               await vscode.commands.executeCommand('workbench.action.terminal.moveToEditor')
               target.inEditor = true
             }
+            // Keep the terminal tab pinned to the first position in its group.
+            await vscode.commands.executeCommand('moveActiveEditor', { to: 'first', by: 'tab' })
             // Single panel close at the end, after all moves, to limit flicker.
             await vscode.commands.executeCommand('workbench.action.closePanel')
             target.nativeTerminal.show(preserveFocus)
@@ -464,7 +519,15 @@ export class TerminalManager implements vscode.Disposable {
   // ---- Persistence ----
 
   private persist(): void {
-    const file: TerminalsFile = { version: 1, activeId: this.activeId, terminals: this.terminals }
+    // While a resume offer is still pending (popup dismissed or not yet answered),
+    // keep those records in storage — otherwise any change made in the meantime
+    // (e.g. creating a terminal) would overwrite them and lose the old window.
+    const pending = this.pendingResume?.terminals.filter((p) => !this.terminals.some((t) => t.id === p.id)) ?? []
+    const file: TerminalsFile = {
+      version: 1,
+      activeId: this.activeId ?? this.pendingResume?.activeId ?? null,
+      terminals: [...this.terminals, ...pending]
+    }
     this.context.workspaceState.update(STORAGE_KEY, file)
   }
 

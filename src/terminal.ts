@@ -17,6 +17,10 @@ export interface TerminalRecord {
    * default terminal profile. Passed as `shellPath` in `TerminalOptions`.
    */
   shellPath?: string
+  /** True when the agent was started pinned to this record's id (so it can be resumed by id). */
+  pinnedSession?: boolean
+  /** Session/conversation id the agent chose itself, detected after launch. */
+  agentSessionId?: string
 }
 
 export interface TerminalsFile {
