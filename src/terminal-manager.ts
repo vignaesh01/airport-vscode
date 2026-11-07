@@ -519,7 +519,15 @@ export class TerminalManager implements vscode.Disposable {
   // ---- Persistence ----
 
   private persist(): void {
-    const file: TerminalsFile = { version: 1, activeId: this.activeId, terminals: this.terminals }
+    // While a resume offer is still pending (popup dismissed or not yet answered),
+    // keep those records in storage — otherwise any change made in the meantime
+    // (e.g. creating a terminal) would overwrite them and lose the old window.
+    const pending = this.pendingResume?.terminals.filter((p) => !this.terminals.some((t) => t.id === p.id)) ?? []
+    const file: TerminalsFile = {
+      version: 1,
+      activeId: this.activeId ?? this.pendingResume?.activeId ?? null,
+      terminals: [...this.terminals, ...pending]
+    }
     this.context.workspaceState.update(STORAGE_KEY, file)
   }
 
