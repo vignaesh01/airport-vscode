@@ -65,9 +65,10 @@ It moves to the top of the picker and is preselected, so Enter picks it, and the
 right-click menu gains **Duplicate Terminal with ⟨agent⟩ ★**. Click the ★ again to clear it, or
 change it under **Settings → Airport → Favorite Agent** (`airport.favoriteAgent`).
 
-Notifications can be turned on so you get an OS notification when a terminal needs you — toggle
-them from the Terminals view's toolbar or the Command Palette (**Airport: Turn On/Off
-Notifications**).
+When a terminal needs you or finishes a task, Airport sends an OS notification (on by default).
+In-window VS Code notifications are off by default. Toggle either one from the Terminals view's
+**···** menu or the Command Palette (**Airport: Turn On/Off OS Notifications** and **Airport: Turn
+On/Off Notifications**). Your choice is remembered across windows and workspaces.
 
 ![A notification telling you a terminal needs your attention](media/notification.png)
 
