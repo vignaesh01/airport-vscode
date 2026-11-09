@@ -43,6 +43,32 @@
         "when": "!airport.hasActiveTerminal"
       }
     ],
+    "configuration": {
+      "title": "Airport",
+      "properties": {
+        "airport.favoriteAgent": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "claude",
+            "codex",
+            "antigravity",
+            "devin",
+            "shell"
+          ],
+          "enumItemLabels": [
+            "None",
+            "Claude",
+            "Codex",
+            "Antigravity",
+            "Devin",
+            "Shell"
+          ],
+          "markdownDescription": "Agent shown first and preselected in the agent picker, and offered as **Duplicate with ⟨agent⟩ ★** when right-clicking a terminal. You can also set it by clicking ☆ next to an agent in the picker."
+        }
+      }
+    },
     "commands": [
       {
         "command": "airport.newTerminal",
@@ -67,6 +93,26 @@
       {
         "command": "airport.duplicateTerminal",
         "title": "Airport: Duplicate Terminal"
+      },
+      {
+        "command": "airport.duplicateWithFavorite.claude",
+        "title": "Airport: Duplicate Terminal with Claude ★"
+      },
+      {
+        "command": "airport.duplicateWithFavorite.codex",
+        "title": "Airport: Duplicate Terminal with Codex ★"
+      },
+      {
+        "command": "airport.duplicateWithFavorite.antigravity",
+        "title": "Airport: Duplicate Terminal with Antigravity ★"
+      },
+      {
+        "command": "airport.duplicateWithFavorite.devin",
+        "title": "Airport: Duplicate Terminal with Devin ★"
+      },
+      {
+        "command": "airport.duplicateWithFavorite.shell",
+        "title": "Airport: Duplicate Terminal with Shell ★"
       },
       {
         "command": "airport.duplicateTerminalWithAgent",
@@ -155,6 +201,26 @@
         {
           "command": "airport.turnOnOsNotifications",
           "when": "!airport.osNotificationsEnabled"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.claude",
+          "when": "false"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.codex",
+          "when": "false"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.antigravity",
+          "when": "false"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.devin",
+          "when": "false"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.shell",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -192,24 +258,49 @@
           "group": "1_terminalActions@1"
         },
         {
-          "command": "airport.duplicateTerminalWithAgent",
-          "when": "view == airport.terminals && viewItem == airportTerminal",
+          "command": "airport.duplicateWithFavorite.claude",
+          "when": "view == airport.terminals && viewItem == airportTerminal && airport.favoriteAgent == 'claude'",
           "group": "1_terminalActions@2"
         },
         {
-          "command": "airport.renameTerminal",
+          "command": "airport.duplicateWithFavorite.codex",
+          "when": "view == airport.terminals && viewItem == airportTerminal && airport.favoriteAgent == 'codex'",
+          "group": "1_terminalActions@2"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.antigravity",
+          "when": "view == airport.terminals && viewItem == airportTerminal && airport.favoriteAgent == 'antigravity'",
+          "group": "1_terminalActions@2"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.devin",
+          "when": "view == airport.terminals && viewItem == airportTerminal && airport.favoriteAgent == 'devin'",
+          "group": "1_terminalActions@2"
+        },
+        {
+          "command": "airport.duplicateWithFavorite.shell",
+          "when": "view == airport.terminals && viewItem == airportTerminal && airport.favoriteAgent == 'shell'",
+          "group": "1_terminalActions@2"
+        },
+        {
+          "command": "airport.duplicateTerminalWithAgent",
           "when": "view == airport.terminals && viewItem == airportTerminal",
           "group": "1_terminalActions@3"
         },
         {
-          "command": "airport.viewFolder",
+          "command": "airport.renameTerminal",
           "when": "view == airport.terminals && viewItem == airportTerminal",
           "group": "1_terminalActions@4"
         },
         {
-          "command": "airport.closeTerminal",
+          "command": "airport.viewFolder",
           "when": "view == airport.terminals && viewItem == airportTerminal",
           "group": "1_terminalActions@5"
+        },
+        {
+          "command": "airport.closeTerminal",
+          "when": "view == airport.terminals && viewItem == airportTerminal",
+          "group": "1_terminalActions@6"
         },
         {
           "command": "airport.file.reveal",

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import { AGENTS } from './agents'
 import { listShells } from './shells'
+import { FAVORITE_AGENT_SETTING, orderAgentsForPicker, toggleFavorite } from './favorite-agent'
 
 export interface NewTerminalChoice {
   folder: string
@@ -64,11 +65,85 @@ async function pickShell(): Promise<string | undefined> {
   return picked?.value
 }
 
-export async function pickAgent(): Promise<string | undefined> {
-  const items = AGENTS.map((a) => ({ label: a.label, value: a.id }))
-  const picked = await vscode.window.showQuickPick(items, {
-    title: 'Airport: New terminal — pick an agent',
-    placeHolder: 'Which agent should run in this terminal?'
+type AgentPickItem = vscode.QuickPickItem & { value: string }
+
+const STAR_BUTTON: vscode.QuickInputButton = {
+  iconPath: new vscode.ThemeIcon('star-empty'),
+  tooltip: 'Set as favourite agent'
+}
+const UNSTAR_BUTTON: vscode.QuickInputButton = {
+  iconPath: new vscode.ThemeIcon('star-full'),
+  tooltip: 'Remove favourite agent'
+}
+
+/** The favourite agent's id, or undefined if none (or an unknown id) is configured. */
+export function getFavoriteAgent(): string | undefined {
+  const id = vscode.workspace.getConfiguration('airport').get<string>(FAVORITE_AGENT_SETTING)
+  return AGENTS.some((a) => a.id === id) ? id : undefined
+}
+
+/**
+ * Saves the favourite to the most specific scope that already defines it, so a
+ * workspace-level override isn't silently shadowing a user-level write.
+ */
+async function setFavoriteAgent(id: string | undefined): Promise<void> {
+  const config = vscode.workspace.getConfiguration('airport')
+  const inspected = config.inspect<string>(FAVORITE_AGENT_SETTING)
+  const target =
+    inspected?.workspaceFolderValue !== undefined
+      ? vscode.ConfigurationTarget.WorkspaceFolder
+      : inspected?.workspaceValue !== undefined
+        ? vscode.ConfigurationTarget.Workspace
+        : vscode.ConfigurationTarget.Global
+  await config.update(FAVORITE_AGENT_SETTING, id ?? '', target)
+}
+
+function buildAgentItems(favoriteId: string | undefined): AgentPickItem[] {
+  return orderAgentsForPicker(AGENTS, favoriteId).map(({ agent, isFavorite }) => ({
+    label: isFavorite ? `$(star-full) ${agent.label}` : agent.label,
+    description: isFavorite ? 'favourite' : undefined,
+    value: agent.id,
+    buttons: [isFavorite ? UNSTAR_BUTTON : STAR_BUTTON]
+  }))
+}
+
+/**
+ * Agent picker with a star button on every row: the favourite floats to the
+ * top and is preselected, so Enter picks it.
+ */
+export function pickAgent(title = 'Airport: New terminal — pick an agent'): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const qp = vscode.window.createQuickPick<AgentPickItem>()
+    qp.title = title
+    qp.placeholder = 'Which agent should run in this terminal? (☆ sets your favourite)'
+
+    const render = (favoriteId: string | undefined, keepActive?: string): void => {
+      const items = buildAgentItems(favoriteId)
+      qp.items = items
+      const active = items.find((i) => i.value === keepActive) ?? items[0]
+      if (active) qp.activeItems = [active]
+    }
+    render(getFavoriteAgent())
+
+    let result: string | undefined
+    qp.onDidTriggerItemButton(async ({ item }) => {
+      const next = toggleFavorite(getFavoriteAgent(), item.value)
+      qp.busy = true
+      try {
+        await setFavoriteAgent(next)
+      } finally {
+        qp.busy = false
+      }
+      render(next, item.value)
+    })
+    qp.onDidAccept(() => {
+      result = qp.selectedItems[0]?.value
+      qp.hide()
+    })
+    qp.onDidHide(() => {
+      qp.dispose()
+      resolve(result)
+    })
+    qp.show()
   })
-  return picked?.value
 }

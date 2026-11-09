@@ -17,6 +17,11 @@ const TERMINAL_ID_ENV = 'AIRPORT_TERMINAL_ID'
  */
 const NOTIFY_SETTLE_GRACE_MS = 2500
 
+// Notification toggles are user preferences, so they live in globalState
+// (shared across workspaces) rather than per-workspace storage.
+const NOTIFICATIONS_KEY = 'airport.notificationsEnabled'
+const OS_NOTIFICATIONS_KEY = 'airport.osNotificationsEnabled'
+
 interface Runtime {
   nativeTerminal: vscode.Terminal | null
   tracker: TerminalStatusTracker
@@ -56,6 +61,9 @@ export class TerminalManager implements vscode.Disposable {
       vscode.window.onDidCloseTerminal((term) => this.handleTerminalClosed(term)),
       vscode.window.onDidChangeActiveTerminal((term) => this.handleActiveTerminalChanged(term))
     )
+
+    this.notificationsEnabled = context.globalState.get(NOTIFICATIONS_KEY, false)
+    this.osNotificationsEnabled = context.globalState.get(OS_NOTIFICATIONS_KEY, true)
 
     const stored = context.workspaceState.get<TerminalsFile>(STORAGE_KEY, EMPTY_TERMINALS_FILE)
     if (stored.terminals.length > 0) {
@@ -469,7 +477,9 @@ export class TerminalManager implements vscode.Disposable {
         previousStatus,
         status,
         alreadyNotifiedAs: runtime.notifiedAs,
-        notificationsEnabled: this.notificationsEnabled,
+        // The VS Code toast and the OS notification are toggled independently,
+        // so either one being on is enough to fire.
+        notificationsEnabled: this.notificationsEnabled || this.osNotificationsEnabled,
         isActiveAndFocused,
         now: Date.now(),
         lastActiveAt: runtime.lastActiveAt
@@ -479,12 +489,14 @@ export class TerminalManager implements vscode.Disposable {
       if (terminal) {
         runtime.notifiedAs = status
         const title = status === 'red' ? 'Needs your input' : 'Task completed'
-        vscode.window.showInformationMessage(`${title}: ${terminal.name}`, 'Go to terminal').then((choice) => {
-          if (choice === 'Go to terminal') {
-            runtime.notifiedAs = undefined
-            this.setActive(id)
-          }
-        })
+        if (this.notificationsEnabled) {
+          vscode.window.showInformationMessage(`${title}: ${terminal.name}`, 'Go to terminal').then((choice) => {
+            if (choice === 'Go to terminal') {
+              runtime.notifiedAs = undefined
+              this.setActive(id)
+            }
+          })
+        }
         if (this.osNotificationsEnabled) {
           sendOsNotification(title, terminal.name, (detail) => this.output.appendLine(`OS notification failed: ${detail}`))
         }
@@ -494,7 +506,8 @@ export class TerminalManager implements vscode.Disposable {
 
   // ---- Notification toggle ----
 
-  private notificationsEnabled = true
+  /** In-window VS Code toasts — off by default; OS notifications cover the common case. */
+  private notificationsEnabled: boolean
 
   get notificationsOn(): boolean {
     return this.notificationsEnabled
@@ -502,10 +515,11 @@ export class TerminalManager implements vscode.Disposable {
 
   toggleNotifications(): void {
     this.notificationsEnabled = !this.notificationsEnabled
+    void this.context.globalState.update(NOTIFICATIONS_KEY, this.notificationsEnabled)
     this.notifyChange()
   }
 
-  private osNotificationsEnabled = true
+  private osNotificationsEnabled: boolean
 
   get osNotificationsOn(): boolean {
     return this.osNotificationsEnabled
@@ -513,6 +527,7 @@ export class TerminalManager implements vscode.Disposable {
 
   toggleOsNotifications(): void {
     this.osNotificationsEnabled = !this.osNotificationsEnabled
+    void this.context.globalState.update(OS_NOTIFICATIONS_KEY, this.osNotificationsEnabled)
     this.notifyChange()
   }
 

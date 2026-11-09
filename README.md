@@ -55,14 +55,20 @@ on.
 
    ![The Files view showing a terminal's folder contents](media/files-view.gif)
 5. Right-click a terminal for more actions: **Duplicate Terminal**, **Duplicate Terminal with
-   Another AI Agent** (pick a different agent to run in the copy), **Rename**, **Open Folder in
-   File Explorer**, and **Close**.
+   ⟨your favourite⟩ ★**, **Duplicate Terminal with Another AI Agent** (pick a different agent to
+   run in the copy), **Rename**, **Open Folder in File Explorer**, and **Close**.
 
    ![Right-clicking a terminal to show Duplicate Terminal, Duplicate Terminal with Another AI Agent, Rename, Open Folder in File Explorer, and Close](media/terminal-context-menu.png)
 
-Notifications can be turned on so you get an OS notification when a terminal needs you — toggle
-them from the Terminals view's toolbar or the Command Palette (**Airport: Turn On/Off
-Notifications**).
+**Favourite agent:** click the ☆ next to any agent in the agent picker to make it your favourite.
+It moves to the top of the picker and is preselected, so Enter picks it, and the terminal
+right-click menu gains **Duplicate Terminal with ⟨agent⟩ ★**. Click the ★ again to clear it, or
+change it under **Settings → Airport → Favorite Agent** (`airport.favoriteAgent`).
+
+When a terminal needs you or finishes a task, Airport sends an OS notification (on by default).
+In-window VS Code notifications are off by default. Toggle either one from the Terminals view's
+**···** menu or the Command Palette (**Airport: Turn On/Off OS Notifications** and **Airport: Turn
+On/Off Notifications**). Your choice is remembered across windows and workspaces.
 
 ![A notification telling you a terminal needs your attention](media/notification.png)
 
