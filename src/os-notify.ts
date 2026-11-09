@@ -53,8 +53,13 @@ try {
 async function sendWindowsToast(title: string, message: string, onError?: (detail: string) => void): Promise<void> {
   const scriptPath = join(tmpdir(), `airport-toast-${randomUUID()}.ps1`)
   await writeFile(scriptPath, windowsToastScript(title, message), 'utf8')
+  // Must NOT be `detached`: on Windows that spawns powershell.exe as a
+  // DETACHED_PROCESS (no console, new process group), and in that state
+  // ToastNotifier.Show() returns without error and exits 0, but the toast is
+  // never delivered — no banner, nothing in Action Center. Verified
+  // empirically on Windows 11 (issue #7). `unref()` below is enough to keep
+  // the child from holding the extension host's event loop open.
   const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
-    detached: true,
     stdio: ['ignore', 'ignore', 'pipe'],
     windowsHide: true
   })
