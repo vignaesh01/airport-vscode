@@ -4,7 +4,9 @@ import { TerminalManager } from './terminal-manager'
 import { TerminalTreeProvider } from './terminal-tree-provider'
 import { TerminalFilesProvider } from './terminal-files-provider'
 import { registerFileCommands } from './file-commands'
-import { runNewTerminalFlow, pickAgent } from './new-terminal-flow'
+import { runNewTerminalFlow, pickAgent, getFavoriteAgent } from './new-terminal-flow'
+import { AGENTS } from './agents'
+import { DUPLICATE_WITH_FAVORITE_PREFIX, FAVORITE_AGENT_CONTEXT, FAVORITE_AGENT_SETTING } from './favorite-agent'
 import type { TerminalRecord } from './terminal'
 
 const VIEW_ID = 'airport.terminals'
@@ -64,6 +66,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(manager.onDidChange(updateOsNotificationsEnabledContext))
   updateOsNotificationsEnabledContext()
 
+  // Drives which "Duplicate Terminal with <agent> ★" context-menu item is visible.
+  const updateFavoriteAgentContext = (): void => {
+    void vscode.commands.executeCommand('setContext', FAVORITE_AGENT_CONTEXT, getFavoriteAgent() ?? '')
+  }
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration(`airport.${FAVORITE_AGENT_SETTING}`)) updateFavoriteAgentContext()
+    })
+  )
+  updateFavoriteAgentContext()
+
   const updateBadge = (): void => {
     const count = manager.needsYouCount()
     treeView.badge =
@@ -92,10 +105,18 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand('airport.duplicateTerminalWithAgent', async (terminal: TerminalRecord) => {
-      const agentId = await pickAgent()
+      const agentId = await pickAgent('Airport: Duplicate terminal — pick an agent')
       if (!agentId) return
       manager.create(terminal.folder, agentId, terminal.shellPath)
     }),
+
+    // One command per agent so the menu label can name the favourite
+    // ("Duplicate Terminal with Claude ★"); only the favourite's is shown.
+    ...AGENTS.map((agent) =>
+      vscode.commands.registerCommand(`${DUPLICATE_WITH_FAVORITE_PREFIX}${agent.id}`, (terminal: TerminalRecord) => {
+        manager.create(terminal.folder, agent.id, terminal.shellPath)
+      })
+    ),
 
     vscode.commands.registerCommand('airport.viewFolder', (terminal: TerminalRecord) => {
       // revealFileInOS opens the folder's *parent* with the item selected
